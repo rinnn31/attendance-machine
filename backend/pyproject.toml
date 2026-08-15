@@ -1,0 +1,7 @@
+[project]
+name = "attendance-machine-backend"
+version = "0.1.0"
+description = "Backend server for attendance machine"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []
