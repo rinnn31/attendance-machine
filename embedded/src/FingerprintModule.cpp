@@ -204,25 +204,25 @@ void FingerprintModule::handleClientEvent(const usb_host_client_event_msg_t *eve
                 ESP_LOGE(kTag, "Failed to claim interface: 0x%x", err);
                 usb_host_device_close(mClientHandle, mDeviceHandle);
                 mDeviceHandle = nullptr;
-            }
-
-            // Get the endpoint addresses from the interface descriptor
-            const usb_config_desc_t* config = nullptr;
-            usb_host_get_active_config_descriptor(mDeviceHandle, &config);
-            
-            const usb_intf_desc_t* interfaceDesc = usb_parse_interface_descriptor(config, 0, 0, nullptr);
-            for (int i = 0; i < interfaceDesc->bNumEndpoints; ++i) {
-                const usb_ep_desc_t* epDesc = usb_parse_endpoint_descriptor_by_index(interfaceDesc, i, config->wTotalLength, nullptr);
-                if (epDesc) {
-                    bool isIn = (epDesc->bEndpointAddress & USB_B_ENDPOINT_ADDRESS_EP_DIR_MASK);
-                    bool isBulk = ((epDesc->bmAttributes & USB_BM_ATTRIBUTES_XFERTYPE_MASK) == USB_BM_ATTRIBUTES_XFER_BULK);
-                    if (isBulk && isIn)  mBulkInEp  = epDesc->bEndpointAddress;
-                    if (isBulk && !isIn) mBulkOutEp = epDesc->bEndpointAddress;
+            } else {
+                // Get the endpoint addresses from the interface descriptor
+                const usb_config_desc_t* config = nullptr;
+                usb_host_get_active_config_descriptor(mDeviceHandle, &config);
+                
+                const usb_intf_desc_t* interfaceDesc = usb_parse_interface_descriptor(config, 0, 0, nullptr);
+                for (int i = 0; i < interfaceDesc->bNumEndpoints; ++i) {
+                    const usb_ep_desc_t* epDesc = usb_parse_endpoint_descriptor_by_index(interfaceDesc, i, config->wTotalLength, nullptr);
+                    if (epDesc) {
+                        bool isIn = (epDesc->bEndpointAddress & USB_B_ENDPOINT_ADDRESS_EP_DIR_MASK);
+                        bool isBulk = ((epDesc->bmAttributes & USB_BM_ATTRIBUTES_XFERTYPE_MASK) == USB_BM_ATTRIBUTES_XFER_BULK);
+                        if (isBulk && isIn)  mBulkInEp  = epDesc->bEndpointAddress;
+                        if (isBulk && !isIn) mBulkOutEp = epDesc->bEndpointAddress;
+                    }
                 }
-            }
 
-            mIsDeviceConnected = true;
-            ESP_LOGI(kTag, "AS608 fingerprint sensor connected and interface claimed.");
+                mIsDeviceConnected = true;
+                ESP_LOGI(kTag, "AS608 fingerprint sensor connected and interface claimed.");
+            }
         }
 
     } else if (event_msg->event == USB_HOST_CLIENT_EVENT_DEV_GONE) {
@@ -471,7 +471,7 @@ const uint8_t* FingerprintModule::getNewestRawImage() {
             return nullptr;
         }
 
-        memcpy(mImageBuffer + bytesReceived, &packetBuf[9], payloadLength);
+        memcpy(tempBuffer + bytesReceived, &packetBuf[9], payloadLength);
         bytesReceived += payloadLength;
 
         if (pid == 0x08) {
