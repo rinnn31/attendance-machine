@@ -20,6 +20,7 @@ inline constexpr uint32_t kMinResetPressDurationMs = 10000;
 inline constexpr uint32_t kMinModeSwitchPressDurationMs = 3000;
 
 inline constexpr uint8_t kModeSwitchButtonPin = 3;
+inline constexpr uint8_t kFingerprintSensorWakeupPin = 4;  
 
 }
 #endif // BOARD_CONFIG_H
