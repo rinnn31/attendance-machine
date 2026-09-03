@@ -2,11 +2,12 @@
 #define FINGERPRINT_MODULE_H
 
 #include <stdint.h>
+#include <functional>
 #include <usb/usb_host.h>
 #include <freertos/semphr.h>
 #include <freertos/task.h>
 
-using SensorStateChangedCallback = void(*)(bool isFingerPresent);
+using SensorStateChangedCallback = std::function<void(bool isFingerDetected)>;
 
 class FingerprintModule {
 public:

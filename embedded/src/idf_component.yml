@@ -1,3 +1,7 @@
 dependencies:
   joltwallet/littlefs:
     version: "^1.22.3"
+  espressif/esp32-camera:
+    version: "^2.1.7"
+  espressif/human_face_detect:
+    version: "^0.5.0"
