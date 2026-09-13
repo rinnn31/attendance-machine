@@ -11,7 +11,6 @@ using SensorStateChangedCallback = std::function<void(bool isFingerDetected)>;
 
 class FingerprintModule {
 public:
-    static constexpr uint8_t kBitsPerPixel = 4;
     static constexpr uint16_t kImageWidth = 256;
     static constexpr uint16_t kImageHeight = 288;
 

@@ -12,7 +12,6 @@ constexpr uint8_t kSensitivityThreshold = 10;
 constexpr uint16_t kMinDistanceMm = 300;
 constexpr uint16_t kMaxDistanceMm = 600;
 
-constexpr uint8_t kMovementDeltaThreshold = 20;
 constexpr uint8_t kDefaultStableFrameCount = 10;
 constexpr uint8_t kLostFaceFrameThreshold = 2;
 constexpr float kFaceDetectionScoreThreshold = 0.7f;
@@ -49,7 +48,7 @@ bool FaceCamModule::begin() {
     mDistanceSensorDoneSem = xSemaphoreCreateBinary();
     mCameraDoneSem = xSemaphoreCreateBinary();
 
-    // Initialize the distance sensor
+    ///Initialize the distance sensor
     mToFSensorWire = new TwoWire(0);
     if (!mToFSensorWire->begin(BoardConfig::kToFSensorSdaPin, BoardConfig::kToFSensorSclPin, 400000)) {
         ESP_LOGE(kTag, "Failed to initialize I2C for distance sensor");

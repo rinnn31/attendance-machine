@@ -9,7 +9,7 @@
 #include <atomic>
 #include <functional>
 
-using OnFaceStableCallback = std::function<void(const uint8_t* faceImage, size_t imageSize, size_t width, size_t height)>;
+using OnFaceStableCallback = std::function<void(const uint8_t* image, size_t imageSize, size_t width, size_t height)>;
 using OnFacePresenceChangedCallback = std::function<void(bool isFacePresent)>;
 
 class FaceCamModule {

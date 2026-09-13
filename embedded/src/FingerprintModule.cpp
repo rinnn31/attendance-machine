@@ -438,7 +438,8 @@ const uint8_t* FingerprintModule::getNewestRawImage() {
         return nullptr;
     }
 
-    constexpr size_t totalImageSize = kImageWidth * kImageHeight * kBitsPerPixel / 8; 
+    constexpr size_t totalImageSize = kImageWidth * kImageHeight;
+    constexpr size_t expectedPacketLength = totalImageSize / 2; // Fingerprint sensor sends 4-bit grayscale, so we expect half the size in bytes
     uint8_t* tempBuffer = (uint8_t*)heap_caps_calloc(totalImageSize, 1, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT); // Create buffer in psram 
     if (!tempBuffer) {
         ESP_LOGE(kTag, "getNewestRawImage: Failed to allocate image buffer in PSRAM.");
@@ -449,7 +450,7 @@ const uint8_t* FingerprintModule::getNewestRawImage() {
     uint8_t packetBuf[kTransferBufferSize];
     bool isStreamComplete = false;
 
-    while (!isStreamComplete && bytesReceived < totalImageSize) {
+    while (!isStreamComplete && bytesReceived < expectedPacketLength) {
         if (!receivePacket(packetBuf, sizeof(packetBuf), &actualLength, 2000)) {
             ESP_LOGE(kTag, "getNewestRawImage: Timeout receiving image chunk.");
             free(tempBuffer);
@@ -465,7 +466,7 @@ const uint8_t* FingerprintModule::getNewestRawImage() {
         uint16_t packetLength = (static_cast<uint16_t>(packetBuf[7]) << 8) | packetBuf[8];
         size_t payloadLength = packetLength - 2;
 
-        if (bytesReceived + payloadLength > totalImageSize) {
+        if (bytesReceived + payloadLength > expectedPacketLength) {
             ESP_LOGE(kTag, "getNewestRawImage: Image stream exceeded buffer capacity.");
             free(tempBuffer);
             return nullptr;
@@ -479,9 +480,9 @@ const uint8_t* FingerprintModule::getNewestRawImage() {
         }
     }
 
-    if (bytesReceived != totalImageSize) {
+    if (bytesReceived != expectedPacketLength) {
         ESP_LOGE(kTag, "getNewestRawImage: Incomplete image data (%zu / %zu bytes).", 
-                 bytesReceived, totalImageSize);
+                 bytesReceived, expectedPacketLength);
         free(tempBuffer);
         return nullptr;
     }
@@ -491,6 +492,15 @@ const uint8_t* FingerprintModule::getNewestRawImage() {
     if (mImageBuffer) {
         free(mImageBuffer);
     }
+
+    // Convert 4-bit grayscale to 8-bit grayscale
+    for (size_t i = expectedPacketLength; i > 0; --i) {
+        size_t idx = i - 1;
+        uint8_t b = tempBuffer[idx];
+        tempBuffer[idx * 2]     = ((b >> 4) & 0x0F) * 17;
+        tempBuffer[idx * 2 + 1] = (b & 0x0F) * 17;
+    }
     mImageBuffer = tempBuffer;
+
     return mImageBuffer;
 }
