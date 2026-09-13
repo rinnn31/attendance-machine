@@ -10,10 +10,9 @@ struct DeviceConfiguration {
     String wifiSsid;
     String wifiPassword;
 
-    String mqttBroker;
-    String mqttUsername;
-    String mqttPassword;
-    uint16_t mqttPort;
+    String wsHost;
+    uint16_t wsPort;
+    String authKey;
 };
 
 class ConfigService {

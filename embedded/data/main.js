@@ -36,10 +36,10 @@ async function loadConfiguration() {
         if (data.deviceApPassword !== undefined) document.getElementById("deviceApPassword").value = data.deviceApPassword;
         if (data.wifiSsid !== undefined) document.getElementById("wifiSsid").value = data.wifiSsid;
         if (data.wifiPassword !== undefined) document.getElementById("wifiPassword").value = data.wifiPassword;
-        if (data.mqttBroker !== undefined) document.getElementById("mqttBroker").value = data.mqttBroker;
-        if (data.mqttPort !== undefined) document.getElementById("mqttPort").value = data.mqttPort;
-        if (data.mqttUsername !== undefined) document.getElementById("mqttUsername").value = data.mqttUsername;
-        if (data.mqttPassword !== undefined) document.getElementById("mqttPassword").value = data.mqttPassword;
+        if (data.wsHost !== undefined) document.getElementById("wsHost").value = data.wsHost;
+        if (data.wsPort !== undefined) document.getElementById("wsPort").value = data.wsPort;
+        if (data.authKey !== undefined) document.getElementById("authKey").value = data.authKey;
+
     } catch (error) {
         showToast("Không thể nạp dữ liệu cấu hình từ thiết bị", "error");
         console.error("Lỗi nạp config:", error);
@@ -57,10 +57,9 @@ function initFormHandlers() {
             deviceApPassword: document.getElementById("deviceApPassword").value,
             wifiSsid: document.getElementById("wifiSsid").value,
             wifiPassword: document.getElementById("wifiPassword").value,
-            mqttBroker: document.getElementById("mqttBroker").value,
-            mqttPort: parseInt(document.getElementById("mqttPort").value, 10) || 1883,
-            mqttUsername: document.getElementById("mqttUsername").value,
-            mqttPassword: document.getElementById("mqttPassword").value
+            wsHost: document.getElementById("wsHost").value,
+            wsPort: parseInt(document.getElementById("wsPort").value, 10),
+            authKey: document.getElementById("authKey").value
         };
 
         try {

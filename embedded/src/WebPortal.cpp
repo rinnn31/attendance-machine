@@ -88,10 +88,9 @@ void WebPortal::handleReadConfig(AsyncWebServerRequest *request) {
     jsonDoc["deviceApPassword"] = config.deviceApPassword;
     jsonDoc["wifiSsid"] = config.wifiSsid;
     jsonDoc["wifiPassword"] = config.wifiPassword;
-    jsonDoc["mqttBroker"] = config.mqttBroker;
-    jsonDoc["mqttUsername"] = config.mqttUsername;
-    jsonDoc["mqttPassword"] = config.mqttPassword;
-    jsonDoc["mqttPort"] = config.mqttPort;
+    jsonDoc["wsHost"] = config.wsHost;
+    jsonDoc["wsPort"] = config.wsPort;
+    jsonDoc["authKey"] = config.authKey;
 
     String jsonResponse;
     serializeJson(jsonDoc, jsonResponse);
@@ -116,10 +115,9 @@ void WebPortal::handleSaveConfig(AsyncWebServerRequest *request, String *jsonStr
     newConfig.deviceApPassword = jsonDoc["deviceApPassword"].as<String>();
     newConfig.wifiSsid = jsonDoc["wifiSsid"].as<String>();
     newConfig.wifiPassword = jsonDoc["wifiPassword"].as<String>();
-    newConfig.mqttBroker = jsonDoc["mqttBroker"].as<String>();
-    newConfig.mqttUsername = jsonDoc["mqttUsername"].as<String>();
-    newConfig.mqttPassword = jsonDoc["mqttPassword"].as<String>();
-    newConfig.mqttPort = jsonDoc["mqttPort"] | 1883;
+    newConfig.wsHost = jsonDoc["wsHost"].as<String>();
+    newConfig.wsPort = jsonDoc["wsPort"].as<uint16_t>();
+    newConfig.authKey = jsonDoc["authKey"].as<String>();
 
     ConfigService::getInstance()->saveConfig(newConfig);
 
