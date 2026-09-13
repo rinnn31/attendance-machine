@@ -6,6 +6,7 @@
 #include "BoardConfig.h"
 #include "ConfigService.h"
 #include "WebPortal.h"  
+#include "MainController.h"
 
 constexpr const char* kTag = "Main";
 
@@ -34,7 +35,8 @@ void webPortalModeSetup() {
 }
 
 void normalModeSetup() {
-
+    static MainController mainController;
+    mainController.begin();
 }
  
 void setup() {
@@ -101,4 +103,6 @@ void loop() {
             ESP.restart();
         }
     }
+
+    delay(50);
 }
