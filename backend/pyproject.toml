@@ -1,7 +1,21 @@
 [project]
-name = "attendance-machine-backend"
+name = "attendance-server-backend"
 version = "0.1.0"
-description = "Backend server for attendance machine"
+description = "Backend server for attendance device"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "fastapi"
+    "pydantic_settings"
+    "SQLAlchemy"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+asyncio_mode = "auto"
