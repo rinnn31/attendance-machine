@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: attendx_db
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_DATABASE=attendx_db
+      - MYSQL_USER=user
+      - MYSQL_PASSWORD=password
+    ports:
+      - "3306:3306" 
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - USE_CUDA=${USE_CUDA:-false}
+    container_name: attendx_api
+    restart: always
+    ports:
+      - "${API_PORT:-8000}:8000"
+    environment:
+      - DATABASE_URL=mysql+pymysql://user:password@db:3306/attendx_db
+    volumes:
+      - .:/app
+      - insightface_models:/root/.insightface
+    depends_on:
+      db:
+        condition: service_started
+
+volumes:
+  mysql_data:
+  insightface_models:

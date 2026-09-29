@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "attendance-server-backend"
 version = "0.1.0"
@@ -5,9 +9,14 @@ description = "Backend server for attendance device"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "fastapi"
-    "pydantic_settings"
-    "SQLAlchemy"
+    "fastapi",
+    "uvicorn[standard]",
+    "pydantic-settings",
+    "SQLAlchemy",
+    "pymysql",
+    "insightface",
+    "opencv-python-headless",
+    "numpy"
 ]
 
 [project.optional-dependencies]
@@ -15,6 +24,8 @@ dev = [
     "pytest",
     "pytest-asyncio",
 ]
+cpu = ["onnxruntime"]
+gpu = ["onnxruntime-gpu"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
