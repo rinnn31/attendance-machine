@@ -11,7 +11,7 @@ async def lifespan(app: FastAPI):
 
     app.state.database = database
     app.state.device_manager = DeviceManager()
-    
+
     try:
         yield
     finally:

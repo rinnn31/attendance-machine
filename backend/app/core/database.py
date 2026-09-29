@@ -14,7 +14,7 @@ class Database:
         return self._async_session()
 
     async def close(self):
-        await self._engine.dispose()\
+        await self._engine.dispose()
 
     async def init_db(self):
         async with self._engine.begin() as conn:
