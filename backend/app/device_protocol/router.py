@@ -3,7 +3,7 @@ from fastapi import WebSocket, WebSocketDisconnect, APIRouter, Header, status
 from app.core import get_settings
 from app.device_protocol.manager import DeviceManager
 
-router = APIRouter(tags=["device_protocol"])
+router = APIRouter(tags=["device_protocol"], prefix="/device_protocol")
 
 @router.websocket("/ws")
 async def websocket_endpoint(

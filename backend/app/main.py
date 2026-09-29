@@ -3,6 +3,8 @@ from contextlib import asynccontextmanager
 
 from app.core.database import Database
 from app.device_protocol import DeviceManager
+from app.api import employee_router, biometric_router
+from app.device_protocol import device_protocol_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -20,4 +22,6 @@ async def lifespan(app: FastAPI):
 
 if __name__ == "__main__":
     app = FastAPI(lifespan=lifespan)
-    app.state.data
+    app.include_router(employee_router, prefix="/api")
+    app.include_router(biometric_router, prefix="/api")
+    app.include_router(device_protocol_router)

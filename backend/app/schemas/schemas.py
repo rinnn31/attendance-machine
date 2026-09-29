@@ -33,4 +33,12 @@ class EmployeeResponse(BaseModel):
     email: str
     address: str
 
+class EmployeeBiometricsResponse(BaseModel):
+    employee_id: int
+    total_face_biometrics: int
+    total_fingerprint_biometrics: int
 
+class AddBiometricRequest(BaseModel):
+    employee_id: int
+    biometric_type: str
+    biometric_datas: list[str]
