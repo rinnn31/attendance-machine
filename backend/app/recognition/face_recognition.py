@@ -1,11 +1,10 @@
 from dataclasses import dataclass
-
 import cv2
 import insightface
-import os
 import re
-
 import numpy as np 
+
+from app.core.config import get_settings
 
 @dataclass(slots=True)
 class FaceData:
@@ -16,12 +15,12 @@ class FaceData:
 
 class FaceRecognition:
     def __init__(self):
-        use_cuda = os.environ.get("USE_CUDA", "false").lower() == "true"
+        use_cuda = get_settings().USE_CUDA
 
         self._model = insightface.app.FaceAnalysis(
             name='buffalo_l' if use_cuda else 'buffalo_s'
         )
-        det_size = os.environ.get("FACE_IMAGE_DATA_SIZE", "640x640")
+        det_size = get_settings().FACE_IMAGE_DATA_SIZE
         if re.match(r'^\d+x\d+$', det_size):
             width, height = map(int, det_size.split('x'))
             self._model.prepare(

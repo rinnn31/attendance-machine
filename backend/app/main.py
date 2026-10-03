@@ -35,10 +35,8 @@ async def lifespan(app: FastAPI):
     finally:
         await database.close()
 
-
-if __name__ == "__main__":
-    app = FastAPI(lifespan=lifespan)
-    app.include_router(employee_router, prefix="/api")
-    app.include_router(biometric_router, prefix="/api")
-    app.include_router(attendance_router, prefix="/api")
-    app.include_router(device_protocol_router)
+app = FastAPI(lifespan=lifespan)
+app.include_router(employee_router, prefix="/api")
+app.include_router(biometric_router, prefix="/api")
+app.include_router(attendance_router, prefix="/api")
+app.include_router(device_protocol_router)

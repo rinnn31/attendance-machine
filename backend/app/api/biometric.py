@@ -7,7 +7,7 @@ from app.schemas import Response, EmployeeBiometricsResponse, AddBiometricReques
 
 router = APIRouter(tags=["biometric"], prefix="/biometrics")
 
-@router.get("/{employee_id}", response_model=Response[EmployeeBiometricsResponse])
+@router.get(path="/{employee_id}", response_model=Response[EmployeeBiometricsResponse])
 async def get_employee_biometrics_info(
     employee_id: int,
     db=Depends(get_database)
@@ -17,7 +17,7 @@ async def get_employee_biometrics_info(
     return Response.success(await biometric_service.get_employee_biometrics(employee_id))
 
 
-@router.post()
+@router.post(path="/", response_model=Response[int])
 async def add_biometric_data(
     request: AddBiometricRequest, 
     db=Depends(get_database)
@@ -33,7 +33,7 @@ async def add_biometric_data(
 
     return Response.success(success_count)
 
-@router.delete("/{employee_id}/{biometric_type}")
+@router.delete(path="/{employee_id}/{biometric_type}", response_model=Response[None])
 async def delete_biometric_data(
     employee_id: int, 
     biometric_type: BiometricType, 

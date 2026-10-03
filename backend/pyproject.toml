@@ -12,11 +12,13 @@ dependencies = [
     "fastapi",
     "uvicorn[standard]",
     "pydantic-settings",
-    "SQLAlchemy",
-    "pymysql",
+    "SQLAlchemy[asyncio]",
+    "aiomysql",
     "insightface",
     "opencv-python-headless",
-    "numpy"
+    "numpy",
+    "greenlet",
+    "cryptography"
 ]
 
 [project.optional-dependencies]

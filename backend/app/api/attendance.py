@@ -8,7 +8,7 @@ from app.service.attendance_service import AttendanceService
 
 router = APIRouter(tags=["attendance"], prefix="/attendances")
 
-@router.get(response_class=Response[list[ByEmployeeAttendanceDetailResponse] | list[ByDateAttendanceDetailResponse]])
+@router.get(response_class=Response[list[ByEmployeeAttendanceDetailResponse] | list[ByDateAttendanceDetailResponse]], path="/")
 async def get_attendance_info(
     by: str = "employee",
     # For by="employee" option

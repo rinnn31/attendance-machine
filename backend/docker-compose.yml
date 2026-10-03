@@ -24,9 +24,9 @@ services:
     container_name: attendx_api
     restart: always
     ports:
-      - "${API_PORT:-8000}:8000"
+      - "8000:8000"
     environment:
-      - DATABASE_URL=mysql+pymysql://user:password@db:3306/attendx_db
+      - DATABASE_URL=mysql+aiomysql://user:password@db:3306/attendx_db
     volumes:
       - .:/app
       - insightface_models:/root/.insightface

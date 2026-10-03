@@ -2,6 +2,7 @@ import os
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.models.biometric import BiometricType
 from app.recognition.face_recognition import FaceData
 from app.schemas import ByEmployeeAttendanceDetailResponse, ByDateAttendanceDetailResponse
@@ -84,7 +85,7 @@ class AttendanceService:
 
 
         if biometric_type == BiometricType.FACE:
-            image_size = os.environ.get("FACE_IMAGE_DATA_SIZE", "640x640")
+            image_size = get_settings().FACE_IMAGE_DATA_SIZE
             width, height = map(int, image_size.split('x'))
 
             embeddings = self._face_recognition.extract_faces_data(biometric_data)
