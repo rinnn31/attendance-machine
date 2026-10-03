@@ -13,14 +13,19 @@ from app.device_protocol.protocol import (
     MessageType,
     DeviceToServerCommand
 )
+from app.recognition.face_recognition import FaceRecognition
+from app.recognition.fingerprint_recognition import FingerprintRecognition
+from app.service.attendance_service import AttendanceService
 
 class DeviceManager:
     def __init__(self):
         self._devices : dict[str, WebSocket] = {}
-        self._attendance_request_handler: Callable[[int, BiometricType, bytes], bool] | None = None
 
         self._device_response_futures: dict[str, dict[int, asyncio.Future[bytes]]] = {}
         self._device_request_id_counters: dict[str, int] = {}
+
+    def get_device_ids(self) -> list[str]:
+        return list(self._devices.keys())
 
     def add_device(self, device_id: str, websocket: WebSocket) -> bool:
         if device_id in self._devices:
@@ -41,9 +46,6 @@ class DeviceManager:
             return True
         
         return False
-
-    def set_attendance_request_handler(self, handler: Callable[[int, BiometricType, bytes], Awaitable[bool]]):
-        self._attendance_request_handler = handler
 
     def _generate_request_id(self, device_id: str) -> int:
         if device_id not in self._device_request_id_counters:
@@ -97,7 +99,7 @@ class DeviceManager:
                     case DeviceToServerCommand.ATTENDANCE_REQUEST.value:
                         biometric_type, timestamp, biometric_data = parse_attendance_request_payload(payload)
                         if self._attendance_request_handler:
-                            ret = await self._attendance_request_handler(timestamp, biometric_type, biometric_data)
+                            ret = await self.handle_attendance_request(device_id, timestamp, biometric_type, biometric_data)
                             await websocket.send_bytes(build_attendance_response_payload(header.request_id, ret))
                         else:
                             await websocket.send_bytes(build_attendance_response_payload(header.request_id, False))
@@ -113,4 +115,17 @@ class DeviceManager:
             print(f"Error handling device message from {device_id}: {e}")
             pass
 
-    
+    async def handle_attendance_request(self, device_id: str, timestamp: int, biometric_type: BiometricType, biometric_data: bytes) -> bool:
+        websocket = self._devices.get(device_id)
+        if not websocket:
+            return False
+
+        db = websocket.app.state.database.get_session()
+        face_recognition: FaceRecognition = websocket.app.state.face_recognition
+        fingerprint_recognition = websocket.app.state.fingerprint_recognition
+
+        attendance_service = AttendanceService(db, face_recognition, fingerprint_recognition)
+        try:
+            return await attendance_service.handle_attendance_request(timestamp, biometric_type, biometric_data)
+        finally:
+            await db.close()

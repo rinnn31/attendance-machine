@@ -52,7 +52,10 @@ class FingerprintRecognition:
             return None
             
 
-    def recognize_fingerprint(self, template: np.ndarray, threshold: int = 15) -> str | None:
+    def recognize_fingerprint(self, template: bytes, threshold: int = 15) -> str | None:
+        nparr = np.frombuffer(template, np.uint8)
+        template = cv2.imdecode(nparr, cv2.IMREAD_GRAYSCALE)
+
         best_match_id = None
         max_good_matches = 0
 

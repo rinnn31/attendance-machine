@@ -7,7 +7,7 @@ from app.models.base import Base
 from app.models.biometric import BiometricType
 
 if TYPE_CHECKING:
-    from app.models.employee import Employee\
+    from app.models.employee import Employee
 
 class AttendanceRecord(Base):
     __tablename__ = "attendance_records"
@@ -16,5 +16,6 @@ class AttendanceRecord(Base):
     employee_id: Mapped[int] = mapped_column(ForeignKey("employees.id"), nullable=False)
     timestamp: Mapped[int] = mapped_column(nullable=False)
     biometric_type: Mapped[BiometricType] = mapped_column(Enum(BiometricType), nullable=False)
+    device_id: Mapped[str] = mapped_column(nullable=False)
 
     employee: Mapped[Employee] = relationship("Employee", back_populates="attendance_records")

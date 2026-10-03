@@ -42,3 +42,15 @@ class AddBiometricRequest(BaseModel):
     employee_id: int
     biometric_type: str
     biometric_datas: list[str]
+
+class ByDateAttendanceDetailResponse(BaseModel):
+    employee_id: int
+    full_name: str
+    device_id: str
+    timestamp: str
+    biometric_type: str
+
+class ByEmployeeAttendanceDetailResponse(BaseModel):
+    timestamp: str
+    device_id: str
+    biometric_type: str

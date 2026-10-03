@@ -4,7 +4,9 @@ from app.schemas.schemas import (
     UpdateEmployeeRequest,
     EmployeeResponse,
     EmployeeBiometricsResponse,
-    AddBiometricRequest
+    AddBiometricRequest,
+    ByDateAttendanceDetailResponse,
+    ByEmployeeAttendanceDetailResponse
 )
 
 __all__ = [
@@ -13,6 +15,8 @@ __all__ = [
     "UpdateEmployeeRequest",
     "EmployeeResponse",
     "EmployeeBiometricsResponse",
-    "AddBiometricRequest"
+    "AddBiometricRequest",
+    "ByDateAttendanceDetailResponse",
+    "ByEmployeeAttendanceDetailResponse"
 ]
 

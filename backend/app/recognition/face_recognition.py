@@ -1,8 +1,11 @@
 from dataclasses import dataclass
 
+import cv2
 import insightface
 import os
-import re 
+import re
+
+import numpy as np 
 
 @dataclass(slots=True)
 class FaceData:
@@ -13,14 +16,16 @@ class FaceData:
 
 class FaceRecognition:
     def __init__(self):
+        use_cuda = os.environ.get("USE_CUDA", "false").lower() == "true"
+
         self._model = insightface.app.FaceAnalysis(
-            name='buffalo_l'
+            name='buffalo_l' if use_cuda else 'buffalo_s'
         )
         det_size = os.environ.get("FACE_IMAGE_DATA_SIZE", "640x640")
         if re.match(r'^\d+x\d+$', det_size):
             width, height = map(int, det_size.split('x'))
             self._model.prepare(
-                ctx_id=0 if os.environ.get("USE_CUDA", "false").lower() == "true" else -1,
+                ctx_id=0 if use_cuda else -1,
                 det_size=(width, height)
             )
         else:
@@ -36,7 +41,10 @@ class FaceRecognition:
         self._face_embeddings[employee_id].append(embedding)
 
     def extract_faces_data(self, image: bytes) -> list[FaceData]:
-        faces = self._model.get(image)
+        nparr = np.frombuffer(image, np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        
+        faces = self._model.get(img)
         faces_data = []
         for face in faces:
             face_data = FaceData(
@@ -54,9 +62,12 @@ class FaceRecognition:
 
         for employee_id, embeddings in self._face_embeddings.items():
             for stored_embedding in embeddings:
-                score = self._model.compute_distance(embedding, stored_embedding)
+                score = self._compute_distance(embedding, stored_embedding)
                 if score < best_match_score and score < threshold:
                     best_match_score = score
                     best_match_id = employee_id
 
         return best_match_id
+
+    def _compute_distance(self, embedding1: list[float], embedding2: list[float]) -> float:
+        return np.dot(embedding1, embedding2) / (np.linalg.norm(embedding1) * np.linalg.norm(embedding2))
