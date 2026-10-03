@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import Enum, ForeignKey
+from sqlalchemy import Enum, ForeignKey, Integer, LargeBinary
 import enum
 
 from app.models.base import Base
@@ -16,9 +16,9 @@ class BiometricType(str, enum.Enum):
 class Biometric(Base):
     __tablename__ = "biometrics"
 
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    employee_id: Mapped[int] = mapped_column(ForeignKey("employees.id"), nullable=False)
-    data: Mapped[bytes] = mapped_column(nullable=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    employee_id: Mapped[int] = mapped_column(Integer, ForeignKey("employees.id"), nullable=False)
+    data: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     type: Mapped[BiometricType] = mapped_column(Enum(BiometricType), nullable=False)
 
     employee: Mapped[Employee] = relationship("Employee", back_populates="biometrics")
