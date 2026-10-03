@@ -40,6 +40,10 @@ class FaceRecognition:
             self._face_embeddings[employee_id] = []
         self._face_embeddings[employee_id].append(embedding)
 
+    def remove_face_embeddings(self, employee_id: str):
+        if employee_id in self._face_embeddings:
+            del self._face_embeddings[employee_id]
+
     def extract_faces_data(self, image: bytes) -> list[FaceData]:
         nparr = np.frombuffer(image, np.uint8)
         img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)

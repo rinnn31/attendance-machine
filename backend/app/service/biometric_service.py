@@ -43,9 +43,13 @@ class BiometricService:
             )
 
             self._session.add(biometric)
+
+            self._face_recognition.add_face_embedding(str(employee_id), embedding)
+
             success_count += 1
             
         await self._session.commit()
+
         return success_count
 
     async def add_fingerprint_data(self, employee_id: int, fingerprint_datas: list[str]) -> int:
@@ -65,6 +69,9 @@ class BiometricService:
             )
 
             self._session.add(biometric)
+
+            self._fingerprint_recognition.add_fingerprint_template(str(employee_id), data.template)
+
             success_count += 1
             
         await self._session.commit()
@@ -75,9 +82,15 @@ class BiometricService:
             "DELETE FROM biometrics WHERE employee_id = :employee_id AND type = :type RETURNING id", 
             {"employee_id": employee_id, "type": type.value}
         )
-
+    
         deleted_ids = result.scalars().all()
         await self._session.commit()
+
+        if type == BiometricType.FACE:
+            self._face_recognition.remove_face_embeddings(str(employee_id))
+        elif type == BiometricType.FINGERPRINT:
+            self._fingerprint_recognition.remove_fingerprint_templates(str(employee_id))
+
         return len(deleted_ids)
 
     async def get_all_biometric_data(self, employee_id: Optional[int] = None) -> list[Biometric]:

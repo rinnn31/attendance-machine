@@ -33,6 +33,10 @@ class FingerprintRecognition:
             self._fingerprint_templates[employee_id] = []
         self._fingerprint_templates[employee_id].append(template)
 
+    def remove_fingerprint_templates(self, employee_id: str):
+        if employee_id in self._fingerprint_templates:
+            del self._fingerprint_templates[employee_id]
+
     def extract_fingerprint_data(self, image: bytes) -> FingerprintData | None:
         try:
             preprocessed_img = self._preprocess_image(image)
