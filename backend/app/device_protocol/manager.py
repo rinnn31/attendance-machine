@@ -1,4 +1,3 @@
-from typing import Awaitable, Callable
 from fastapi import WebSocket
 import asyncio
 
@@ -16,6 +15,7 @@ from app.device_protocol.protocol import (
 from app.recognition.face_recognition import FaceRecognition
 from app.recognition.fingerprint_recognition import FingerprintRecognition
 from app.service.attendance_service import AttendanceService
+from app.models import DBBiometricType
 
 class DeviceManager:
     def __init__(self):
@@ -93,16 +93,12 @@ class DeviceManager:
                 return
             
             header, payload = parse_message(message)
-
             if header.message_type == MessageType.REQUEST:
                 match header.command_id:
                     case DeviceToServerCommand.ATTENDANCE_REQUEST.value:
                         biometric_type, timestamp, biometric_data = parse_attendance_request_payload(payload)
-                        if self._attendance_request_handler:
-                            ret = await self.handle_attendance_request(device_id, timestamp, biometric_type, biometric_data)
-                            await websocket.send_bytes(build_attendance_response_payload(header.request_id, ret))
-                        else:
-                            await websocket.send_bytes(build_attendance_response_payload(header.request_id, False))
+                        ret = await self.handle_attendance_request(device_id, timestamp, biometric_type, biometric_data)
+                        await websocket.send_bytes(build_attendance_response_payload(header.request_id, ret))
                     case _:
                         pass
             
@@ -122,10 +118,11 @@ class DeviceManager:
 
         db = websocket.app.state.database.get_session()
         face_recognition: FaceRecognition = websocket.app.state.face_recognition
-        fingerprint_recognition = websocket.app.state.fingerprint_recognition
+        fingerprint_recognition: FingerprintRecognition = websocket.app.state.fingerprint_recognition
 
         attendance_service = AttendanceService(db, face_recognition, fingerprint_recognition)
         try:
-            return await attendance_service.handle_attendance_request(timestamp, biometric_type, biometric_data)
+            biometric_type_db = DBBiometricType.FACE if biometric_type == BiometricType.FACE else DBBiometricType.FINGERPRINT
+            return await attendance_service.handle_attendance_request(device_id, timestamp, biometric_type_db, biometric_data)
         finally:
             await db.close()

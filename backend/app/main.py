@@ -1,10 +1,13 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+import numpy as np
 
 from app.core.database import Database
 from app.device_protocol import DeviceManager
-from app.api import employee_router, biometric_router, attendance_router
+from app.api import employee_router, biometric_router, attendance_router, device_router
 from app.device_protocol import device_protocol_router
+from app.models.biometric import DBBiometricType
 from app.recognition import FaceRecognition, FingerprintRecognition
 from app.service.biometric_service import BiometricService
 
@@ -23,10 +26,11 @@ async def lifespan(app: FastAPI):
     try:
         biometric_data = await biometric_service.get_all_biometric_data()
         for biometric in biometric_data:
-            if biometric.type == "face":
-                app.state.face_recognition.add_face_embedding(str(biometric.employee_id), biometric.data)
-            elif biometric.type == "fingerprint":
-                app.state.fingerprint_recognition.add_fingerprint_template(str(biometric.employee_id), biometric.data)
+            data = np.frombuffer(biometric.data, dtype=np.float32)
+            if biometric.type == DBBiometricType.FACE:
+                app.state.face_recognition.add_face_embedding(biometric.employee_id, data)
+            elif biometric.type == DBBiometricType.FINGERPRINT:
+                app.state.fingerprint_recognition.add_fingerprint_template(biometric.employee_id, data)
     finally:
         await db_session.close()
         
@@ -36,7 +40,17 @@ async def lifespan(app: FastAPI):
         await database.close()
 
 app = FastAPI(lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"]
+)
+
 app.include_router(employee_router, prefix="/api")
 app.include_router(biometric_router, prefix="/api")
 app.include_router(attendance_router, prefix="/api")
+app.include_router(device_router, prefix="/api")
 app.include_router(device_protocol_router)

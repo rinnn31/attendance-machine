@@ -8,7 +8,7 @@ from app.service.attendance_service import AttendanceService
 
 router = APIRouter(tags=["attendance"], prefix="/attendances")
 
-@router.get(response_class=Response[list[ByEmployeeAttendanceDetailResponse] | list[ByDateAttendanceDetailResponse]], path="/")
+@router.get(path="/")
 async def get_attendance_info(
     by: str = "employee",
     # For by="employee" option
@@ -24,23 +24,14 @@ async def get_attendance_info(
     
     if by == "employee":
         if employee_id is None or start_date is None or end_date is None:
-            return Response(
-                status_code=400,
-                message="Missing required parameters for 'by=employee' option."
-            )
-        attendance_details = await AttendanceService.get_employee_attendance(employee_id, start_date, end_date)
+            return Response.make_error("Missing required parameters for 'by=employee' option. Required: employee_id, start_date, end_date.")
+        attendance_details = await attendance_service.get_employee_attendance(employee_id, start_date, end_date)
     elif by == "date":
         if date is None:
-            return Response(
-                status_code=400,
-                message="Missing required parameter 'date' for 'by=date' option."
-            )
-        attendance_details = await AttendanceService.get_date_attendance(date)
+            return Response.make_error("Missing required parameter for 'by=date' option. Required: date.")
+        attendance_details = await attendance_service.get_date_attendance(date)
     else:
-        return Response(
-            status_code=400,
-            message="Invalid 'by' parameter. Must be either 'employee' or 'date'."
-        )
+        return Response.make_error(message="Invalid 'by' parameter. Must be either 'employee' or 'date'.")
 
-    return Response.success(attendance_details)
+    return Response.make_success(attendance_details)
     

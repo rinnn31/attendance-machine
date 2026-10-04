@@ -1,4 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+
 from app.models.employee import Employee
 from app.schemas import EmployeeResponse, CreateEmployeeRequest, UpdateEmployeeRequest
 
@@ -19,9 +21,7 @@ class EmployeeService:
         return None
 
     async def list_employees(self) -> list[EmployeeResponse]:
-        result = await self._session.execute(
-            "SELECT * FROM employees"
-        )
+        result = await self._session.execute(select(Employee))
         employees = result.scalars().all()
         return [
             EmployeeResponse(

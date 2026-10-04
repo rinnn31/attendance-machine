@@ -1,44 +1,48 @@
 from fastapi import APIRouter, Depends
 
-from app.api.deps import get_database
-from app.models.biometric import BiometricType
+from app.api.deps import get_database, get_face_recognition, get_fingerprint_recognition
+from app.models.biometric import DBBiometricType
 from app.service.biometric_service import BiometricService
 from app.schemas import Response, EmployeeBiometricsResponse, AddBiometricRequest
 
 router = APIRouter(tags=["biometric"], prefix="/biometrics")
 
-@router.get(path="/{employee_id}", response_model=Response[EmployeeBiometricsResponse])
+@router.get(path="/{employee_id}")
 async def get_employee_biometrics_info(
     employee_id: int,
-    db=Depends(get_database)
+    db=Depends(get_database),
+    face_recognition=Depends(get_face_recognition),
+    fingerprint_recognition=Depends(get_fingerprint_recognition)
 ) -> Response[EmployeeBiometricsResponse]:
     
-    biometric_service = BiometricService(db)
-    return Response.success(await biometric_service.get_employee_biometrics(employee_id))
+    biometric_service = BiometricService(db, face_recognition, fingerprint_recognition)
+    return Response.make_success(await biometric_service.get_employee_biometrics(employee_id))
 
 
-@router.post(path="/", response_model=Response[int])
+@router.post(path="/")
 async def add_biometric_data(
     request: AddBiometricRequest, 
-    db=Depends(get_database)
-):
-    biometric_service = BiometricService(db)
+    db=Depends(get_database),
+    face_recognition=Depends(get_face_recognition),
+    fingerprint_recognition=Depends(get_fingerprint_recognition)
+) -> Response[int]:
+    biometric_service = BiometricService(db, face_recognition, fingerprint_recognition)
 
-    if request.biometric_type == BiometricType.FACE.value:
+    if request.biometric_type == DBBiometricType.FACE.value:
         success_count = await biometric_service.add_face_data(request.employee_id, request.biometric_datas)
-    elif request.biometric_type == BiometricType.FINGERPRINT.value:
+    elif request.biometric_type == DBBiometricType.FINGERPRINT.value:
         success_count = await biometric_service.add_fingerprint_data(request.employee_id, request.biometric_datas)
     else:
-        return Response.error("Invalid biometric type")
+        return Response.make_error("Invalid biometric type")
 
-    return Response.success(success_count)
+    return Response.make_success(success_count)
 
-@router.delete(path="/{employee_id}/{biometric_type}", response_model=Response[None])
+@router.delete(path="/{employee_id}/{biometric_type}")
 async def delete_biometric_data(
     employee_id: int, 
-    biometric_type: BiometricType, 
+    biometric_type: DBBiometricType, 
     db=Depends(get_database)
-):
+) -> Response[None]:
     biometric_service = BiometricService(db)
     await biometric_service.clear_biometric_data(employee_id, biometric_type)
-    return Response.success()
+    return Response.make_success()
