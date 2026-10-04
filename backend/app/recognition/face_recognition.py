@@ -30,16 +30,16 @@ class FaceRecognition:
         else:
             raise ValueError("FACE_IMAGE_DATA_SIZE must be in the format 'widthxheight', e.g., '640x640'.")
 
-        self._face_embeddings : dict[str, list[list[float]]] = {}
+        self._face_embeddings : dict[int, list[list[float]]] = {}
 
         pass
 
-    def add_face_embedding(self, employee_id: str, embedding: list[float]):
+    def add_face_embedding(self, employee_id: int, embedding: list[float]):
         if employee_id not in self._face_embeddings:
             self._face_embeddings[employee_id] = []
         self._face_embeddings[employee_id].append(embedding)
 
-    def remove_face_embeddings(self, employee_id: str):
+    def remove_face_embeddings(self, employee_id: int):
         if employee_id in self._face_embeddings:
             del self._face_embeddings[employee_id]
 
@@ -59,18 +59,26 @@ class FaceRecognition:
             faces_data.append(face_data)
         return faces_data
 
-    def recognize_face(self, embedding: list[float], threshold: float = 0.5) -> str | None:
+    def recognize_face(self, embedding: list[float], threshold: float = 0.5) -> int | None:
+        query_vec = np.array(embedding, dtype=np.float32)
+        query_norm = np.linalg.norm(query_vec)
+        if query_norm == 0:
+            return None
+        query_vec /= query_norm
+
         best_match_id = None
-        best_match_score = float('inf')
+        best_score = -1.0
 
         for employee_id, embeddings in self._face_embeddings.items():
-            for stored_embedding in embeddings:
-                score = self._compute_distance(embedding, stored_embedding)
-                if score < best_match_score and score < threshold:
-                    best_match_score = score
-                    best_match_id = employee_id
+            matrix = np.array(embeddings, dtype=np.float32)
+            norms = np.linalg.norm(matrix, axis=1, keepdims=True)
+            matrix = np.divide(matrix, norms, out=matrix, where=norms != 0)
+
+            similarities = np.dot(matrix, query_vec)
+            max_sim = float(np.max(similarities))
+
+            if max_sim > best_score and max_sim >= threshold:
+                best_score = max_sim
+                best_match_id = employee_id
 
         return best_match_id
-
-    def _compute_distance(self, embedding1: list[float], embedding2: list[float]) -> float:
-        return np.dot(embedding1, embedding2) / (np.linalg.norm(embedding1) * np.linalg.norm(embedding2))

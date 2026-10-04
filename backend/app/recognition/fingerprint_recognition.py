@@ -9,8 +9,8 @@ class FingerprintData:
 
 class FingerprintRecognition:
     def __init__(self):
-        self._model = cv2.SIFT_create()
-        self._fingerprint_templates: dict[str, list[np.ndarray]] = {}
+        self._model = cv2.SIFT.create()
+        self._fingerprint_templates: dict[int, list[np.ndarray]] = {}
 
     def _preprocess_image(self, image_bytes: bytes) -> np.ndarray:
         np_arr = np.frombuffer(image_bytes, np.uint8)
@@ -28,12 +28,12 @@ class FingerprintRecognition:
             
         return blurred
 
-    def add_fingerprint_template(self, employee_id: str, template: np.ndarray):
+    def add_fingerprint_template(self, employee_id: int, template: np.ndarray):
         if employee_id not in self._fingerprint_templates:
             self._fingerprint_templates[employee_id] = []
         self._fingerprint_templates[employee_id].append(template)
 
-    def remove_fingerprint_templates(self, employee_id: str):
+    def remove_fingerprint_templates(self, employee_id: int):
         if employee_id in self._fingerprint_templates:
             del self._fingerprint_templates[employee_id]
 
@@ -56,9 +56,14 @@ class FingerprintRecognition:
             return None
             
 
-    def recognize_fingerprint(self, template: bytes, threshold: int = 15) -> str | None:
-        nparr = np.frombuffer(template, np.uint8)
-        template = cv2.imdecode(nparr, cv2.IMREAD_GRAYSCALE)
+    def recognize_fingerprint(self, image_bytes: bytes, threshold: int = 15) -> int | None:
+        query_data = self.extract_fingerprint_data(image_bytes)
+        if query_data is None or query_data.template is None:
+            return None
+
+        query_descriptors = query_data.template
+        if len(query_descriptors) < 2:
+            return None
 
         best_match_id = None
         max_good_matches = 0
@@ -67,25 +72,24 @@ class FingerprintRecognition:
 
         for employee_id, stored_templates in self._fingerprint_templates.items():
             for stored_template in stored_templates:
-                if stored_template is None or len(stored_template) < 2 or len(template) < 2:
+                if stored_template is None or len(stored_template) < 2:
                     continue
-                
+
                 try:
-                    matches = matcher.knnMatch(template, stored_template, k=2)
-                    
+                    matches = matcher.knnMatch(query_descriptors, stored_template, k=2)
+
                     good_matches = 0
                     for match_points in matches:
                         if len(match_points) == 2:
                             m, n = match_points
-                            # Khoảng cách điểm m phải nhỏ hơn 70% khoảng cách điểm n
                             if m.distance < 0.7 * n.distance:
                                 good_matches += 1
 
-                    if good_matches > max_good_matches and good_matches >= threshold:
-                        max_good_matches = good_matches
-                        best_match_id = employee_id
+                        if good_matches > max_good_matches and good_matches >= threshold:
+                            max_good_matches = good_matches
+                            best_match_id = employee_id
 
-                except Exception as e:
+                except Exception:
                     pass
 
         return best_match_id
