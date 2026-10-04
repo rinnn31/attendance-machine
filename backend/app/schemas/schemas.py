@@ -7,11 +7,11 @@ class Response[T](BaseModel):
     data: Optional[T] = None
 
     @classmethod
-    def success(cls, data: Optional[T] = None) -> "Response[T]":
+    def make_success(cls, data: Optional[T] = None) -> "Response[T]":
         return cls(success=True, data=data)
 
     @classmethod
-    def error(cls, message: str) -> "Response[None]":
+    def make_error(cls, message: str) -> "Response[None]":
         return cls(success=False, message=message)
 
 class CreateEmployeeRequest(BaseModel):
@@ -47,10 +47,10 @@ class ByDateAttendanceDetailResponse(BaseModel):
     employee_id: int
     full_name: str
     device_id: str
-    timestamp: str
+    timestamp: int
     biometric_type: str
 
 class ByEmployeeAttendanceDetailResponse(BaseModel):
-    timestamp: str
+    timestamp: int
     device_id: str
     biometric_type: str

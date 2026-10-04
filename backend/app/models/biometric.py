@@ -9,9 +9,9 @@ from app.models.base import Base
 if TYPE_CHECKING:
     from app.models.employee import Employee
 
-class BiometricType(str, enum.Enum):
-    FINGERPRINT = "fingerprint"
-    FACE = "face"
+class DBBiometricType(str, enum.Enum):
+    FINGERPRINT = "FINGERPRINT"
+    FACE = "FACE"
 
 class Biometric(Base):
     __tablename__ = "biometrics"
@@ -19,6 +19,6 @@ class Biometric(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     employee_id: Mapped[int] = mapped_column(Integer, ForeignKey("employees.id"), nullable=False)
     data: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
-    type: Mapped[BiometricType] = mapped_column(Enum(BiometricType), nullable=False)
+    type: Mapped[DBBiometricType] = mapped_column(Enum(DBBiometricType), nullable=False)
 
     employee: Mapped[Employee] = relationship("Employee", back_populates="biometrics")
