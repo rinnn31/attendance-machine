@@ -26,7 +26,8 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=mysql+aiomysql://user:password@db:3306/attendx_db
+      - DATABASE_URL=mysql+asyncmy://user:password@db:3306/attendx_db
+      - PYTHONUNBUFFERED=1
     volumes:
       - .:/app
       - insightface_models:/root/.insightface
