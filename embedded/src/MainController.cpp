@@ -5,6 +5,7 @@
 
 #include "ConfigService.h"
 #include "BoardConfig.h"
+#include "Display.h"
 
 constexpr const char* kTag = "MainController";
 
@@ -18,7 +19,7 @@ constexpr uint32_t kPostAttendanceCooldownMs = 1000;
 
 constexpr const char* kNtpServer1 = "pool.ntp.org";
 constexpr const char* kNtpServer2 = "time.google.com";
-constexpr long kGmtOffsetSec = 0;
+constexpr long kGmtOffsetSec = 7 * 3600;
 constexpr int kDaylightOffsetSec = 0;
 
 MainController::MainController() :
@@ -63,6 +64,8 @@ MainController::~MainController() {
 }
 
 void MainController::begin() {
+    Display::getInstance().showBootMode(Display::BootType::Normal);
+
     DeviceConfiguration config = ConfigService::getInstance()->getDeviceConfig();
 
     mAttendanceQueue = xQueueCreate(1, sizeof(AttendanceEvent));
@@ -88,6 +91,20 @@ void MainController::begin() {
     );
     if (ret != pdPASS) {
         ESP_LOGE(kTag, "Failed to create attendance worker task.");
+        return;
+    }
+
+    ret = xTaskCreatePinnedToCore(
+        MainController::updateStatusDisplayTask,
+        "StatusDisplayUpdater",
+        4096,
+        this,
+        1,
+        nullptr,
+        1
+    );
+    if (ret != pdPASS) {
+        ESP_LOGE(kTag, "Failed to create status display updater task.");
         return;
     }
 
@@ -129,6 +146,16 @@ void MainController::begin() {
     if (!faceCamReady && !fingerprintReady) {
         ESP_LOGE(kTag, "Both FaceCamModule and FingerprintModule could not be initialized. Please check the hardware connections.");
         return;
+    }
+
+    Display::getInstance().showIdle(Display::Status{});
+}
+
+void MainController::updateStatusDisplayTask(void* pvParameters) {
+    MainController* self = static_cast<MainController*>(pvParameters);
+    while (true) {
+        self->updateStatusDisplay();
+        vTaskDelay(pdMS_TO_TICKS(500));
     }
 }
 
@@ -189,6 +216,8 @@ void MainController::handleCommandReceived(const uint8_t commandId, const size_t
                 mFaceCamModule->resetFaceTracking();
                 mFaceCamModule->toggleFaceDetection(true);
             }
+
+            Display::getInstance().showCollecting(Display::Method::Face);
             break;
         }
 
@@ -206,6 +235,8 @@ void MainController::handleCommandReceived(const uint8_t commandId, const size_t
             if (mFaceCamModule) {
                 mFaceCamModule->toggleFaceDetection(false);
             }
+
+            Display::getInstance().showCollecting(Display::Method::Fingerprint);
             break;
         }
 
@@ -222,6 +253,8 @@ void MainController::handleCommandReceived(const uint8_t commandId, const size_t
             uint8_t responsePayload[MessageClient::kFixedHeaderLength + 1];
             responsePayload[MessageClient::kFixedHeaderLength] = 1;
             mMessageClient->sendResponse(requestId, responsePayload, sizeof(responsePayload), true);
+
+            Display::getInstance().showIdle(Display::Status{});
             break;
         }
 
@@ -275,6 +308,27 @@ void MainController::handleFingerprintSensorStateChange(bool isFingerDetected) {
     ev.height = 0;
 
     xQueueSend(mAttendanceQueue, &ev, 0);
+}
+
+void MainController::updateStatusDisplay() {
+    Display::Status status;
+    status.wifiConnected = WiFi.isConnected();
+    status.serverConnected = mMessageClient ? mMessageClient->isConnected() : false;
+
+    time_t now;
+    time(&now);
+    struct tm timeinfo;
+    localtime_r(&now, &timeinfo);
+
+    char dateBuffer[11];
+    strftime(dateBuffer, sizeof(dateBuffer), "%d/%m/%Y", &timeinfo);
+    status.date = String(dateBuffer);
+
+    char timeBuffer[9];
+    strftime(timeBuffer, sizeof(timeBuffer), "%H:%M:%S", &timeinfo);
+    status.time = String(timeBuffer);
+
+    Display::getInstance().updateStatus(status);
 }
 
 void MainController::attendanceWorkerTask(void* pvParameters) {
@@ -372,7 +426,11 @@ bool MainController::sendAttendanceData(BiometricType type, const uint8_t* image
     time_t now;
     time(&now);
 
-    size_t payloadSize = MessageClient::kRequestHeaderLength + 1 + sizeof(now) + dataSize;
+    ESP_LOGI(kTag, "Sending attendance data. Type: %s, Image size: %zu bytes, Timestamp: %ld", 
+             type == BiometricType::kFace ? "Face" : "Fingerprint", dataSize, now);
+
+    // 4 bytes for preallocated header, 1 byte for BiometricType, 8 bytes for timestamp, and the rest for image data
+    size_t payloadSize = MessageClient::kRequestHeaderLength + 1 + 1 + sizeof(now) + dataSize; 
     uint8_t* payload = (uint8_t*)heap_caps_calloc(1, payloadSize, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     if (!payload) {
         ESP_LOGE(kTag, "Failed to allocate memory for attendance data payload.");
@@ -385,10 +443,24 @@ bool MainController::sendAttendanceData(BiometricType type, const uint8_t* image
 
     xSemaphoreTake(mAttendanceDoneSem, 0);
 
-    uint16_t reqId = mMessageClient->sendRequest(1, payload, payloadSize - MessageClient::kRequestHeaderLength, [this, payload](bool success, const uint8_t* response) {
+    Display::getInstance().showProcessing(type == BiometricType::kFace ? Display::Method::Face : Display::Method::Fingerprint);
+
+    uint16_t reqId = mMessageClient->sendRequest(1, payload, payloadSize - MessageClient::kRequestHeaderLength - 1, [this, payload](bool success, const uint8_t* response) {
         if (success) {
-            ESP_LOGI(kTag, "Attendance data sent successfully.");
+            ESP_LOGI(kTag, "Got server response for attendance data.");
+
+            uint8_t status = response[0];
+            if (status == 1) {
+                ESP_LOGI(kTag, "Attendance data accepted by server.");
+                
+                String fullName = String(reinterpret_cast<const char*>(response + 1));
+                Display::getInstance().showResult(Display::ResultType::Success, "Chấm công thành công", 2000, fullName);
+            } else {
+                ESP_LOGW(kTag, "Attendance data rejected by server.");
+                Display::getInstance().showResult(Display::ResultType::Failed, "Chấm công thất bại");
+            }
         } else {
+            Display::getInstance().showResult(Display::ResultType::Failed, "Chấm công thất bại");
             ESP_LOGW(kTag, "Failed to send attendance data or response timed out.");
         }
         free(payload);
@@ -420,4 +492,6 @@ void MainController::sendDataCollectionResponse(uint16_t requestId, bool success
 
     mMessageClient->sendResponse(requestId, payload, payloadSize, true);
     free(payload);
+
+    Display::getInstance().showIdle(Display::Status{})
 }

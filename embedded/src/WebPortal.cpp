@@ -7,10 +7,24 @@
 
 #include "ConfigService.h"
 #include "BoardConfig.h"
+#include "Display.h"
 
 static constexpr const char* kTag = "WebPortal";
 
 void WebPortal::begin() {
+    Display::getInstance().showBootMode(Display::BootType::Configuration);
+
+    ESP_LOGI(kTag, "Starting WiFi in AP mode...");
+    // Init wifi softAP
+    String apPassword = ConfigService::getInstance()->getDeviceConfig().deviceApPassword;
+    if (apPassword.isEmpty()) {
+        apPassword = BoardConfig::kDefaultSoftApPassword;
+        ESP_LOGW(kTag, "AP password is empty. Using default password: %s", BoardConfig::kDefaultSoftApPassword);
+    }
+
+    WiFi.mode(WIFI_AP);
+    WiFi.softAP(BoardConfig::kDeviceSerial, apPassword.c_str());
+    
     mWebServer = std::make_unique<AsyncWebServer>(80);
 
     ESP_LOGI(kTag, "Starting web server on port 80...");
@@ -67,17 +81,7 @@ void WebPortal::begin() {
 
     mWebServer->begin();
 
-    ESP_LOGI(kTag, "Starting WiFi in AP mode...");
-    // Init wifi softAP
-    String apPassword = ConfigService::getInstance()->getDeviceConfig().deviceApPassword;
-    if (apPassword.isEmpty()) {
-        apPassword = BoardConfig::kDefaultSoftApPassword;
-        ESP_LOGW(kTag, "AP password is empty. Using default password: %s", BoardConfig::kDefaultSoftApPassword);
-    }
-
-    WiFi.mode(WIFI_AP);
-    WiFi.softAP(BoardConfig::kDeviceSerial, apPassword.c_str());
-
+    Display::getInstance().showConfigMode(BoardConfig::kDeviceSerial, WiFi.softAPIP().toString());
     ESP_LOGI(kTag, "Web portal started. Connect to WiFi SSID '%s' and access the web portal at http://%s", BoardConfig::kDeviceSerial, WiFi.softAPIP().toString().c_str());
 }
 

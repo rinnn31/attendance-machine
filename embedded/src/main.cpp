@@ -7,6 +7,7 @@
 #include "ConfigService.h"
 #include "WebPortal.h"  
 #include "MainController.h"
+#include "Display.h"
 
 constexpr const char* kTag = "Main";
 
@@ -59,6 +60,8 @@ void setup() {
 
     pinMode(BoardConfig::kModeSwitchButtonPin, INPUT_PULLUP);
 
+    Display::getInstance().begin();
+
     BootMode bootMode = getBootMode();
     if (bootMode == kWebPortalMode) {
         ESP_LOGI(kTag, "Booting in Web Portal Mode");
@@ -75,6 +78,8 @@ void setup() {
 }
 
 void loop() {
+    Display::getInstance().taskHandler();
+
     if (digitalRead(BoardConfig::kModeSwitchButtonPin) == LOW) {
         if (!gBtnPressed) {
             ESP_LOGI(kTag, "Mode switch button pressed.");
@@ -104,5 +109,5 @@ void loop() {
         }
     }
 
-    delay(50);
+    delay(10);
 }

@@ -21,10 +21,15 @@ inline constexpr uint32_t kMinResetPressDurationMs = 10000;
 inline constexpr uint32_t kMinModeSwitchPressDurationMs = 3000;
 
 inline constexpr uint8_t kModeSwitchButtonPin = 3;
-inline constexpr uint8_t kFingerprintSensorWakeupPin = 41;  
+inline constexpr uint8_t kFingerprintSensorWakeupPin = 14;  
 
 inline constexpr uint8_t kToFSensorSclPin = 39;
 inline constexpr uint8_t kToFSensorSdaPin = 40;
+
+inline constexpr uint8_t kDisplaySckPin = 41;
+inline constexpr uint8_t kDisplayMosiPin = 42;
+inline constexpr uint8_t kDisplayRstPin = 21;
+inline constexpr uint8_t kDisplayDcPin = 47;
 
 // Camera specific configurations
 inline constexpr int8_t  kPinPwdn   = -1;

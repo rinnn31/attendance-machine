@@ -12,7 +12,7 @@ constexpr uint8_t kSensitivityThreshold = 10;
 constexpr uint16_t kMinDistanceMm = 300;
 constexpr uint16_t kMaxDistanceMm = 600;
 
-constexpr uint8_t kDefaultStableFrameCount = 10;
+constexpr uint8_t kDefaultStableFrameCount = 5;
 constexpr uint8_t kLostFaceFrameThreshold = 2;
 constexpr float kFaceDetectionScoreThreshold = 0.7f;
 
@@ -26,7 +26,7 @@ FaceCamModule::FaceCamModule() :
     mCameraDoneSem(nullptr),
     mDistanceSensor(nullptr),
     mFaceDetector(nullptr),
-    mFaceDetectionEnabled(false),
+    mFaceDetectionEnabled(true),
     mCameraEnabled(false),
     mIsTrackingFace(false),
     mFirstFaceX(0),
@@ -167,6 +167,7 @@ void FaceCamModule::end() {
 }
 
 void FaceCamModule::toggleCamera(bool enable) {
+    ESP_LOGI(kTag, "Toggling camera %s", enable ? "ON" : "OFF");
     sensor_t* sensor = esp_camera_sensor_get();
     if (sensor) {
         BoardConfig::__toggle_camera_power(sensor, enable);
@@ -180,7 +181,8 @@ void FaceCamModule::distanceSensorTask(void* arg) {
         if (self->mFaceDetectionEnabled && self->mDistanceSensor) {
             VL53L0X_RangingMeasurementData_t measure;
             self->mDistanceSensor->rangingTest(&measure, false);
-            if (measure.RangeStatus == 0 && measure.RangeMilliMeter <= kMaxDistanceMm && measure.RangeMilliMeter >= kMinDistanceMm) {
+
+            if (measure.RangeMilliMeter <= kMaxDistanceMm) {
                 self->mOutOfRangeCounter = 0; // Reset out of range counter
                 
                 if (!self->mCameraEnabled) {
@@ -200,7 +202,7 @@ void FaceCamModule::distanceSensorTask(void* arg) {
                 }
             }
         }
-        vTaskDelay(pdMS_TO_TICKS(10));
+        vTaskDelay(pdMS_TO_TICKS(100));
     }
 
     if (self->mDistanceSensorDoneSem) {
@@ -220,11 +222,13 @@ void FaceCamModule::cameraTask(void* arg) {
                 img.width = fb->width;
                 img.height = fb->height;
                 img.pix_type = dl::image::DL_IMAGE_PIX_TYPE_RGB565BE;
-                
+
                 auto faces = self->mFaceDetector->run(img);
                 bool faceDetected = !faces.empty() && faces.front().score >= kFaceDetectionScoreThreshold;
 
                 if (faceDetected) {
+                    ESP_LOGI(kTag, "Face detected with score: %.2f", faces.front().score);
+
                     auto& face = faces.front();
                     self->postFacePresenceChangedEvent(true);
                     if (self->trackFaceState(face.box[0], face.box[1], face.box[2] - face.box[0], face.box[3] - face.box[1], fb->width, fb->height)) {

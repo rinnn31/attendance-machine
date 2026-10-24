@@ -57,7 +57,10 @@ private:
     bool sendAttendanceData(BiometricType type, const uint8_t* data, size_t dataSize);
     void sendDataCollectionResponse(uint16_t requestId, bool success, const uint8_t* data = nullptr, size_t dataSize = 0);
 
+    void updateStatusDisplay();
+
     static void attendanceWorkerTask(void* pvParameters);
+    static void updateStatusDisplayTask(void* pvParameters);
     
     MessageClient* mMessageClient;
     FaceCamModule* mFaceCamModule;

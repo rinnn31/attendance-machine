@@ -47,6 +47,9 @@ public:
     ~MessageClient();
     bool begin(const String& clientId, const String& host, uint16_t port, const String& authKey);
     void end();
+    bool isConnected() const {
+        return mSocketClient && mSocketClient->isConnected();
+    }
 
     uint16_t sendRequest(uint8_t commandId, uint8_t* message, size_t length, MessageResponseCallback responseCallback = nullptr, bool preAllocatedMessageHeader = false);
     bool sendResponse(uint16_t requestId, uint8_t* message, size_t length, bool preAllocatedMessageHeader = false);

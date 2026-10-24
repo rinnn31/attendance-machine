@@ -142,14 +142,14 @@ void MessageClient::processMessageTask(void* pvParameters) {
             {
             case kMessageTypeCommand: {
                 if (!self->mRequestCallback) break;
-                if (messageInfo->payloadLength < 2) break; 
+                if (messageInfo->payloadLength < 1) break; 
 
                 uint8_t commandId = static_cast<uint8_t>(messageInfo->payload[0]);
                 self->mRequestCallback(commandId, messageInfo->payloadLength - 1, messageInfo->payload + 1, messageInfo->requestId);
                 break;
             }
             case kMessageTypeResponse: {
-                if (messageInfo->payloadLength < 3) break; 
+                if (messageInfo->payloadLength < 1) break; 
                 MessageResponseCallback responseCallback = nullptr;
                 {
                     std::lock_guard<std::mutex> lock(self->mWaitingResponsesMutex);
@@ -265,7 +265,7 @@ uint16_t MessageClient::sendRequest(uint8_t commandId, uint8_t* message, size_t 
     if (preAllocatedMessageHeader) {
         payload = message;
     } else {
-        payload = (uint8_t*)heap_caps_calloc(1, kFixedHeaderLength + length, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+        payload = (uint8_t*)heap_caps_calloc(1, kFixedHeaderLength + length + 1, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
         if (!payload) return -1;
     }
 
@@ -289,7 +289,7 @@ uint16_t MessageClient::sendRequest(uint8_t commandId, uint8_t* message, size_t 
     }
 
     if (xSemaphoreTake(mWsMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-        mSocketClient->sendBIN(payload, kFixedHeaderLength + length);
+        mSocketClient->sendBIN(payload, kFixedHeaderLength + length + 1);
         xSemaphoreGive(mWsMutex);
     } else {
         ESP_LOGE(kTag, "Failed to take mutex for sendCommand");
@@ -320,12 +320,13 @@ bool MessageClient::sendResponse(uint16_t requestId, uint8_t* response, size_t l
 
     if (!preAllocatedMessageHeader) {
         memcpy(payload + kFixedHeaderLength, response, length);
+        length += kFixedHeaderLength;
     }
 
     bool success = false;
     // Thread-safe Send
     if (xSemaphoreTake(mWsMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-        success = mSocketClient->sendBIN(payload, kFixedHeaderLength + length);
+        success = mSocketClient->sendBIN(payload, length);
         xSemaphoreGive(mWsMutex);
     }
 
