@@ -63,6 +63,8 @@ class DeviceManager:
         request_id = self._generate_request_id(device_id)
         payload = build_collect_data_request_payload(request_id, biometric_type)
 
+        print(f"Sending collect data request to {device_id} with request_id {request_id} and biometric_type {biometric_type}")
+
         fut = asyncio.get_running_loop().create_future()
         self._device_response_futures.setdefault(device_id, {})[request_id] = fut
 
@@ -93,10 +95,12 @@ class DeviceManager:
                 return
             
             header, payload = parse_message(message)
+            print(f"Received message from {device_id} with requestid: {header.request_id} and payload length: {len(payload)}")
             if header.message_type == MessageType.REQUEST:
                 match header.command_id:
                     case DeviceToServerCommand.ATTENDANCE_REQUEST.value:
                         biometric_type, timestamp, biometric_data = parse_attendance_request_payload(payload)
+                        print(f"Received attendance request from {device_id} with biometric_type {biometric_type}, timestamp {timestamp}, and data length {len(biometric_data)}")
                         ret = await self.handle_attendance_request(device_id, timestamp, biometric_type, biometric_data)
                         await websocket.send_bytes(build_attendance_response_payload(header.request_id, ret))
                     case _:
@@ -111,7 +115,7 @@ class DeviceManager:
             print(f"Error handling device message from {device_id}: {e}")
             pass
 
-    async def handle_attendance_request(self, device_id: str, timestamp: int, biometric_type: BiometricType, biometric_data: bytes) -> bool:
+    async def handle_attendance_request(self, device_id: str, timestamp: int, biometric_type: BiometricType, biometric_data: bytes) -> str:
         websocket = self._devices.get(device_id)
         if not websocket:
             return False

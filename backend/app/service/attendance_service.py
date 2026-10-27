@@ -77,13 +77,19 @@ class AttendanceService:
             face_cx = (x1 + x2) / 2.0
             face_cy = (y1 + y2) / 2.0
 
+            print(f"""
+            Face size: {face_w}x{face_h}, min size: {img_width * 0.2}x{img_height * 0.2}
+            Face center: ({face_cx}, {face_cy}), image center: ({img_cx}, {img_cy}), max offset: ({img_width * 0.25}, {img_height * 0.25})
+            Face pose: {face.pose}, max allowed pose: (20, 20)
+            """)
+
             # Bỏ qua khuôn mặt quá nhỏ
             if face_h < img_height * 0.2:
                 continue
 
-            # Bỏ qua các khuôn mặt ở rìa
-            if abs(face_cx - img_cx) > img_width * 0.25 or abs(face_cy - img_cy) > img_height * 0.25:
-                continue
+            # # Bỏ qua các khuôn mặt ở rìa
+            # if abs(face_cx - img_cx) > img_width * 0.25 or abs(face_cy - img_cy) > img_height * 0.25:
+            #     continue
 
             # Bỏ qua các khuôn mặt bị nghiêng quá nhiều
             if abs(face.pose[0]) > 20 or abs(face.pose[1]) > 20:
@@ -100,7 +106,7 @@ class AttendanceService:
         valid_candidates.sort(key=lambda x: x[0], reverse=True)
         return valid_candidates[0][1]
   
-    async def handle_attendance_request(self, device_id: str, timestamp: int, biometric_type: DBBiometricType, biometric_data: bytes) -> bool:
+    async def handle_attendance_request(self, device_id: str, timestamp: int, biometric_type: DBBiometricType, biometric_data: bytes) -> str:
         if biometric_type == DBBiometricType.FACE and not self._face_recognition:
             raise ValueError("FaceRecognition instance is not provided for face biometric type.")
         if biometric_type == DBBiometricType.FINGERPRINT and not self._fingerprint_recognition:
@@ -122,6 +128,10 @@ class AttendanceService:
             employee_id = self._fingerprint_recognition.recognize_fingerprint(biometric_data)
 
         if employee_id:
+            employee = await self._db.get(Employee, employee_id)
+            if not employee:
+                return None
+            
             attendance_record = AttendanceRecord(
                 employee_id=employee_id,
                 timestamp=datetime.fromtimestamp(timestamp),
@@ -130,6 +140,7 @@ class AttendanceService:
             )
             self._db.add(attendance_record)
             await self._db.commit()
-            return True
 
-        return False
+            return employee.full_name
+            
+        return None

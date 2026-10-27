@@ -50,6 +50,7 @@ class FaceRecognition:
         faces = self._model.get(img)
         faces_data = []
         for face in faces:
+            print(f"Detected face with score {face.det_score}, bounding box {face.bbox}, and pose {face.pose}")
             face_data = FaceData(
                 embedding=face.embedding.tolist(),
                 bounding_box=tuple(face.bbox.astype(int)),
@@ -76,6 +77,8 @@ class FaceRecognition:
 
             similarities = np.dot(matrix, query_vec)
             max_sim = float(np.max(similarities))
+
+            print(f"Comparing with employee_id {employee_id}, max similarity: {max_sim}")
 
             if max_sim > best_score and max_sim >= threshold:
                 best_score = max_sim

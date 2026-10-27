@@ -96,8 +96,13 @@ def build_cancel_collect_data_request_payload(request_id: int) -> bytes:
         b""
     )
 
-def build_attendance_response_payload(request_id: int, success: bool) -> bytes:
+def build_attendance_response_payload(request_id: int, result: str) -> bytes:
+    success = result is not None and result.strip() != ""
+
+    status_byte = b"\x01" if success else b"\x00"
+    # Add a null terminator to the name string if success, otherwise return an empty byte string
+    name_bytes = result.strip().encode('utf-8') + b"\x00" if success else b""
     return build_response_message(
         request_id,
-        b"\x01" if success else b"\x00"
+        status_byte + name_bytes
     )
