@@ -184,7 +184,7 @@ void Display::showCollecting(Method method, const String& hint) {
 }
 
 void Display::showResult(ResultType result, const String& message, int durationMs, const String& fullName) {
-    post([this, result, message, durationMs] { doShowResult(result, message, durationMs, fullName); });
+    post([this, result, message, durationMs, fullName] { doShowResult(result, message, durationMs, fullName); });
 }
 
 void Display::updateStatus(const Status& status) {

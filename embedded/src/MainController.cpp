@@ -493,5 +493,5 @@ void MainController::sendDataCollectionResponse(uint16_t requestId, bool success
     mMessageClient->sendResponse(requestId, payload, payloadSize, true);
     free(payload);
 
-    Display::getInstance().showIdle(Display::Status{})
+    Display::getInstance().showIdle(Display::Status{});
 }
