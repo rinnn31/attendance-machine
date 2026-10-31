@@ -23,7 +23,7 @@ class DeviceManager:
 
         self._device_response_futures: dict[str, dict[int, asyncio.Future[bytes]]] = {}
         self._device_request_id_counters: dict[str, int] = {}
-
+        self._device_collect_request_ids: dict[str, int] = {}
     def get_device_ids(self) -> list[str]:
         return list(self._devices.keys())
 
@@ -67,10 +67,13 @@ class DeviceManager:
 
         fut = asyncio.get_running_loop().create_future()
         self._device_response_futures.setdefault(device_id, {})[request_id] = fut
-
+        self._device_collect_request_ids[device_id] = request_id
         try:
             await websocket.send_bytes(payload)
             data = await asyncio.wait_for(fut, timeout=60.0)
+            if data is None:
+                return False, b""
+            
             return parse_collect_data_response_payload(data)
         finally:
             self._device_response_futures[device_id].pop(request_id, None)
@@ -82,6 +85,13 @@ class DeviceManager:
 
         request_id = self._generate_request_id(device_id)
         payload = build_cancel_collect_data_request_payload(request_id)
+
+        collect_request_id = self._device_collect_request_ids.get(device_id)
+        if collect_request_id is not None:
+            fut = self._device_response_futures.get(device_id, {}).get(collect_request_id)
+            if fut and not fut.done():
+                fut.cancel()
+            self._device_collect_request_ids.pop(device_id, None)
 
         try:
             await websocket.send_bytes(payload)

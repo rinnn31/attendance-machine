@@ -60,18 +60,18 @@ class BiometricService:
             fingerprint_data = base64.b64decode(fingerprint_data_b64)
 
             data = self._fingerprint_recognition.extract_fingerprint_data(fingerprint_data)
-            if data is None or data.score < 0.5:
+            if data is None:
                 continue
 
             biometric = Biometric(
                 employee_id=employee_id,
                 type=DBBiometricType.FINGERPRINT.value,
-                data=data.template
+                data=data.to_iso19794_2()
             )
 
             self._session.add(biometric)
 
-            self._fingerprint_recognition.add_fingerprint_template(employee_id, data.template)
+            self._fingerprint_recognition.add_fingerprint_template(employee_id, data.to_iso19794_2())
 
             success_count += 1
             

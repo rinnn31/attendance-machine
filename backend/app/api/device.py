@@ -1,9 +1,8 @@
 from fastapi import APIRouter, Depends
 import base64
 
-from app.device_protocol.manager import DeviceManager
+from app.device_protocol.manager import DeviceManager, BiometricType
 from app.api.deps import get_device_manager
-from app.models.biometric import DBBiometricType
 from app.schemas import Response
 
 router = APIRouter(tags=["Device"], prefix="/devices")
@@ -14,10 +13,7 @@ async def list_devices(device_manager: DeviceManager = Depends(get_device_manage
 
 @router.post(path="/{device_id}/collect/{biometric_type}", response_model=Response)
 async def collect_data(device_id: str, biometric_type: str, device_manager: DeviceManager = Depends(get_device_manager)):
-    try:
-        biometric_type_enum = DBBiometricType(biometric_type)
-    except ValueError:
-        return Response.make_error(message=f"Invalid biometric type: {biometric_type}")
+    biometric_type_enum = BiometricType.FACE if biometric_type.lower() == "face" else BiometricType.FINGERPRINT
 
     success, data = await device_manager.collect_data(device_id, biometric_type_enum)
     if success:

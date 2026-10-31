@@ -18,7 +18,8 @@ dependencies = [
     "opencv-python-headless",
     "numpy",
     "greenlet",
-    "cryptography"
+    "cryptography",
+    "afis"
 ]
 
 [project.optional-dependencies]

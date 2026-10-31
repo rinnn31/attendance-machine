@@ -49,8 +49,11 @@ class ByDateAttendanceDetailResponse(BaseModel):
     device_id: str
     timestamp: int
     biometric_type: str
+    face_capture_image: Optional[str] = None
 
 class ByEmployeeAttendanceDetailResponse(BaseModel):
     timestamp: int
     device_id: str
     biometric_type: str
+    face_capture_image: Optional[str] = None
+    

@@ -18,5 +18,6 @@ class AttendanceRecord(Base):
     timestamp: Mapped[datetime] = mapped_column(TIMESTAMP, nullable=False)
     biometric_type: Mapped[DBBiometricType] = mapped_column(Enum(DBBiometricType), nullable=False)
     device_id: Mapped[str] = mapped_column(String(50), nullable=False)
+    face_capture_image: Mapped[str] = mapped_column(String(255), nullable=True)
 
     employee: Mapped[Employee] = relationship("Employee", back_populates="attendance_records")

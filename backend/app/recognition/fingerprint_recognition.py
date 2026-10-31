@@ -1,93 +1,58 @@
 from dataclasses import dataclass
 import cv2
 import numpy as np
-
-@dataclass(slots=True)
-class FingerprintData:
-    template: np.ndarray 
-    score: float
+from afis import LeaderExtractor, FingerprintTemplate
 
 class FingerprintRecognition:
     def __init__(self):
-        self._model = cv2.SIFT.create()
-        self._fingerprint_templates: dict[int, list[np.ndarray]] = {}
+        self._model = LeaderExtractor()
+        self._fingerprint_templates: dict[int, list[FingerprintTemplate]] = {}
 
-    def _preprocess_image(self, image_bytes: bytes) -> np.ndarray:
-        np_arr = np.frombuffer(image_bytes, np.uint8)
-        img = cv2.imdecode(np_arr, cv2.IMREAD_GRAYSCALE)
-        
-        if img is None:
-            raise ValueError("Không thể decode ảnh vân tay đầu vào.")
 
-        # Cân bằng sáng cục bộ để tăng độ tương phản (CLAHE)
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-        enhanced = clahe.apply(img)
-
-        # Làm mờ ảnh để giảm nhiễu
-        blurred = cv2.GaussianBlur(enhanced, (3, 3), 0)
-            
-        return blurred
-
-    def add_fingerprint_template(self, employee_id: int, template: np.ndarray):
+    def add_fingerprint_template(self, employee_id: int, template: bytes):
         if employee_id not in self._fingerprint_templates:
             self._fingerprint_templates[employee_id] = []
-        self._fingerprint_templates[employee_id].append(template)
+
+        self._fingerprint_templates[employee_id].append(FingerprintTemplate.from_iso19794_2(template))
 
     def remove_fingerprint_templates(self, employee_id: int):
         if employee_id in self._fingerprint_templates:
             del self._fingerprint_templates[employee_id]
 
-    def extract_fingerprint_data(self, image: bytes) -> FingerprintData | None:
+    def extract_fingerprint_data(self, image: bytes) -> FingerprintTemplate | None:
         try:
-            preprocessed_img = self._preprocess_image(image)
+            print("Extracting fingerprint data from image with size:", len(image), "bytes")
+            np_arr = np.frombuffer(image, np.uint8)
+            img = cv2.imdecode(np_arr, cv2.IMREAD_GRAYSCALE)
             
-            keypoints, descriptors = self._model.detectAndCompute(preprocessed_img, None)
+            if img is None:
+                raise ValueError("Không thể decode ảnh vân tay đầu vào.")
             
-            if descriptors is not None:
-                fp_data = FingerprintData(
-                    template=descriptors,
-                    score=1.0
-                )
-                return fp_data
-            else:
-                return None
+            template = self._model.extract_minutiae(img)
+            return template
                 
         except Exception as e:
             return None
             
 
-    def recognize_fingerprint(self, image_bytes: bytes, threshold: int = 15) -> int | None:
-        query_data = self.extract_fingerprint_data(image_bytes)
-        if query_data is None or query_data.template is None:
+    def recognize_fingerprint(self, image_bytes: bytes, threshold: int = 0.25) -> int | None:
+        template = self.extract_fingerprint_data(image_bytes)
+        if template is None:
             return None
 
-        query_descriptors = query_data.template
-        if len(query_descriptors) < 2:
-            return None
 
         best_match_id = None
-        max_good_matches = 0
-
-        matcher = cv2.FlannBasedMatcher(dict(algorithm=1, trees=5), dict(checks=50))
+        max_score = 0
 
         for employee_id, stored_templates in self._fingerprint_templates.items():
             for stored_template in stored_templates:
-                if stored_template is None or len(stored_template) < 2:
-                    continue
-
                 try:
-                    matches = matcher.knnMatch(query_descriptors, stored_template, k=2)
-
-                    good_matches = 0
-                    for match_points in matches:
-                        if len(match_points) == 2:
-                            m, n = match_points
-                            if m.distance < 0.7 * n.distance:
-                                good_matches += 1
-
-                        if good_matches > max_good_matches and good_matches >= threshold:
-                            max_good_matches = good_matches
-                            best_match_id = employee_id
+                    result = self._model.match(template, stored_template)
+                    score = result.raw_score
+                    print(f"Matching with employee_id {employee_id}: score = {score}")
+                    if score > max_score and score >= threshold:
+                        max_score = score
+                        best_match_id = employee_id
 
                 except Exception:
                     pass

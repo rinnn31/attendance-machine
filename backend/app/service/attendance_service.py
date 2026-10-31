@@ -1,6 +1,8 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timedelta
+import cv2
+import hashlib
 
 from app.core.config import get_settings
 from app.recognition.face_recognition import FaceData
@@ -31,7 +33,8 @@ class AttendanceService:
             ByEmployeeAttendanceDetailResponse(
                 timestamp=int(record["timestamp"].timestamp()),
                 device_id=record["device_id"],
-                biometric_type=record["biometric_type"]
+                biometric_type=record["biometric_type"],
+                face_capture_image="/files/"+record.get("face_capture_image") if record.get("face_capture_image") else None
             )
             for record in attendance_records
         ]
@@ -56,7 +59,8 @@ class AttendanceService:
                 full_name=record["full_name"],
                 device_id=record["device_id"],
                 timestamp=int(record["timestamp"].timestamp()),
-                biometric_type=record["biometric_type"]
+                biometric_type=record["biometric_type"],
+                face_capture_image="/files/"+record.get("face_capture_image") if record.get("face_capture_image") else None
             )
             for record in attendance_records
         ]
@@ -113,34 +117,49 @@ class AttendanceService:
             raise ValueError("FingerprintRecognition instance is not provided for fingerprint biometric type.")
 
         employee_id = None
+        face_capture_image_file_name = None
 
-        if biometric_type == DBBiometricType.FACE:
-            image_size = get_settings().FACE_IMAGE_DATA_SIZE
-            width, height = map(int, image_size.split('x'))
-            
-            embeddings = self._face_recognition.extract_faces_data(biometric_data)
-            if embeddings:
-                primary_face = self._select_primary_face(embeddings, width, height)
-                if primary_face and primary_face.score >= 0.5:
-                    employee_id = self._face_recognition.recognize_face(primary_face.embedding)
-            
-        elif biometric_type == DBBiometricType.FINGERPRINT:
-            employee_id = self._fingerprint_recognition.recognize_fingerprint(biometric_data)
+        try:
+            if biometric_type == DBBiometricType.FACE:
+                image_size = get_settings().FACE_IMAGE_DATA_SIZE
+                width, height = map(int, image_size.split('x'))
+                
+                embeddings = self._face_recognition.extract_faces_data(biometric_data)
+                if embeddings:
+                    primary_face = self._select_primary_face(embeddings, width, height)
+                    if primary_face and primary_face.score >= 0.5:
+                        employee_id = self._face_recognition.recognize_face(primary_face.embedding)
 
-        if employee_id:
-            employee = await self._db.get(Employee, employee_id)
-            if not employee:
-                return None
-            
-            attendance_record = AttendanceRecord(
-                employee_id=employee_id,
-                timestamp=datetime.fromtimestamp(timestamp),
-                biometric_type=biometric_type,
-                device_id=device_id
-            )
-            self._db.add(attendance_record)
-            await self._db.commit()
+                        img = cv2.imdecode(biometric_data, cv2.IMREAD_COLOR)
+                        x1, y1, x2, y2 = primary_face.bounding_box
+                        img = cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
-            return employee.full_name
-            
-        return None
+                        face_capture_image_file_name = hashlib.md5(f"{employee_id}_{timestamp}".encode()).hexdigest() + ".jpg"
+                        cv2.imwrite(get_settings().FACE_CAPTURE_IMAGE_PATH + face_capture_image_file_name, img)
+
+                
+            elif biometric_type == DBBiometricType.FINGERPRINT:
+                employee_id = self._fingerprint_recognition.recognize_fingerprint(biometric_data)
+
+            if employee_id:
+                employee = await self._db.get(Employee, employee_id)
+                if not employee:
+                    return None
+                
+                attendance_record = AttendanceRecord(
+                    employee_id=employee_id,
+                    timestamp=datetime.fromtimestamp(timestamp),
+                    biometric_type=biometric_type,
+                    device_id=device_id,
+                    face_capture_image=face_capture_image_file_name
+                )
+                self._db.add(attendance_record)
+                await self._db.commit()
+
+                print(f"Attendance recorded for employee_id {employee_id} with name {employee.full_name} at {datetime.fromtimestamp(timestamp)} from device {device_id} using {biometric_type.name}."  )
+                return employee.full_name
+                
+            return None
+        except Exception as e:
+            print(f"Error handling attendance request: {e}")
+            return None
