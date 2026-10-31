@@ -195,11 +195,25 @@ export const BiometricCollectionModal: React.FC<Props> = ({ employeeId, isOpen, 
             }
 
             setIsCollecting(true);
+
+            const downloadImage = (dataUrl: string, filename = 'fingerprint.png') => {
+                const link = document.createElement('a');
+                link.href = dataUrl;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+            };
+
             try {
                 const res = await deviceApi.collectData(selectedDevice, deviceBiometricType);
                 if (res.success && res.data) {
                     setDevicePreviews(prev => [...prev, res.data]);
                     toast.success('Đã nhận dữ liệu từ thiết bị, vui lòng kiểm tra và xác nhận!');
+                    const base64 = res.data;
+                    const dataUrl = `data:image/png;base64,${base64}`;
+
+                    downloadImage(dataUrl, 'fingerprint.png');
                 }
             } catch (error) {
                 console.error(error);
@@ -482,11 +496,7 @@ export const BiometricCollectionModal: React.FC<Props> = ({ employeeId, isOpen, 
                                     <div className="grid grid-cols-3 sm:grid-cols-4 gap-4">
                                         {devicePreviews.map((preview, idx) => (
                                             <div key={idx} className="relative aspect-square rounded-xl overflow-hidden border border-green-200 bg-green-50 flex items-center justify-center group">
-                                                {deviceBiometricType === 'FACE' ? (
-                                                    <img src={preview} alt="Device Preview" className="w-full h-full object-cover" />
-                                                ) : (
-                                                    <FontAwesomeIcon icon={faFingerprint} className="text-4xl text-green-500" />
-                                                )}
+                                                <img src={'data:image/jpg;base64,' + preview} alt="Device Preview" className="w-full h-full object-cover" />
                                                 <button
                                                     type="button"
                                                     onClick={() => setDevicePreviews(prev => prev.filter((_, i) => i !== idx))}

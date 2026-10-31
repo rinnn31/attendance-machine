@@ -180,26 +180,34 @@ export const AttendanceStats: React.FC = () => {
                 <table className="w-full text-left border-collapse">
                     <thead>
                         <tr className="bg-gray-50 border-b border-gray-200">
-                            {filterType === 'date' && <th className="p-4 text-sm font-semibold text-gray-600">ID / Tên Nhân Viên</th>}
-                            <th className="p-4 text-sm font-semibold text-gray-600">Thời gian</th>
-                            <th className="p-4 text-sm font-semibold text-gray-600">Thiết bị</th>
-                            <th className="p-4 text-sm font-semibold text-gray-600">Hình thức</th>
+                            {filterType === 'date' && <th className="p-4 text-lg font-semibold text-gray-600">ID / Tên Nhân Viên</th>}
+                            <th className="p-4 text-lg font-semibold text-gray-600">Thời gian</th>
+                            <th className="p-4 text-lg font-semibold text-gray-600">Thiết bị</th>
+                            <th className="p-4 text-lg font-semibold text-gray-600">Hình thức</th>
+                            <th className="p-4 text-lg font-semibold text-gray-600">Hình ảnh</th>
                         </tr>
                     </thead>
                     <tbody>
                         {results.map((record, idx) => (
                             <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
                                 {filterType === 'date' && (
-                                    <td className="p-4 text-sm text-gray-800 font-medium">
+                                    <td className="p-4 text-lg text-gray-800 font-medium">
                                         {(record as ByDateAttendanceDetailResponse).employee_id} - {(record as ByDateAttendanceDetailResponse).full_name}
                                     </td>
                                 )}
-                                <td className="p-4 text-sm font-mono text-gray-700">{formatTimestamp(record.timestamp)}</td>
-                                <td className="p-4 text-sm text-gray-600">
-                                    <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-md text-xs font-semibold">{record.device_id}</span>
+                                <td className="p-4 text-lg font-mono text-gray-700">{formatTimestamp(record.timestamp)}</td>
+                                <td className="p-4 text-lg text-gray-600">
+                                    <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-md text-lg font-semibold">{record.device_id}</span>
                                 </td>
-                                <td className="p-4 text-sm text-gray-600">
-                                    <span className="bg-gray-100 text-gray-700 px-3 py-1 rounded-md text-xs font-semibold">{record.biometric_type}</span>
+                                <td className="p-4 text-lg text-gray-600">
+                                    <span className="bg-gray-100 text-gray-700 px-3 py-1 rounded-md text-lg font-semibold">{record.biometric_type === 'FACE' ? 'Khuôn mặt' : 'Vân tay'}</span>
+                                </td>
+                                <td className="p-4 text-lg text-gray-600">
+                                    {record.face_capture_image ? (
+                                        <img src={record.face_capture_image} alt="Face Capture" className="w-20 h-20 object-cover rounded-lg border border-gray-200" />
+                                    ) : (
+                                        <span className="text-gray-400 font-medium">Không có</span>
+                                    )}
                                 </td>
                             </tr>
                         ))}

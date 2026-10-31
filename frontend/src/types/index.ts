@@ -37,10 +37,12 @@ export interface ByDateAttendanceDetailResponse {
     device_id: string;
     timestamp: number;
     biometric_type: string;
+    face_capture_image: string | null;
 }
 
 export interface ByEmployeeAttendanceDetailResponse {
     timestamp: number;
     device_id: string;
     biometric_type: string;
+    face_capture_image: string | null;
 }

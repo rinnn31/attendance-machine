@@ -79,19 +79,19 @@ export const EmployeeList: React.FC = () => {
                 <table className="w-full text-left border-collapse">
                     <thead>
                         <tr className="bg-gray-50 border-b border-gray-200">
-                            <th className="p-4 text-sm font-semibold text-gray-600">ID</th>
-                            <th className="p-4 text-sm font-semibold text-gray-600">Họ Tên</th>
-                            <th className="p-4 text-sm font-semibold text-gray-600">Liên hệ</th>
-                            <th className="p-4 text-sm font-semibold text-gray-600">Sinh trắc học</th>
-                            <th className="p-4 text-sm font-semibold text-gray-600 text-right">Thao tác</th>
+                            <th className="p-4 text-lg font-semibold text-gray-600">ID</th>
+                            <th className="p-4 text-lg font-semibold text-gray-600">Họ Tên</th>
+                            <th className="p-4 text-lg font-semibold text-gray-600">Liên hệ</th>
+                            <th className="p-4 text-lg font-semibold text-gray-600">Sinh trắc học</th>
+                            <th className="p-4 text-lg font-semibold text-gray-600 text-right">Thao tác</th>
                         </tr>
                     </thead>
                     <tbody>
                         {employees.map(emp => (
                             <tr key={emp.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                                <td className="p-4 text-sm text-gray-800 font-medium">{emp.id}</td>
-                                <td className="p-4 text-sm text-gray-800 font-bold">{emp.full_name}</td>
-                                <td className="p-4 text-sm text-gray-600">
+                                <td className="p-4 text-lg text-gray-800 font-medium">{emp.id}</td>
+                                <td className="p-4 text-lg text-gray-800 font-bold">{emp.full_name}</td>
+                                <td className="p-4 text-lg text-gray-600">
                                     <div className="flex flex-col gap-1">
                                         <span>{emp.phone_number}</span>
                                         <span className="text-xs text-gray-400">{emp.email}</span>
@@ -104,7 +104,7 @@ export const EmployeeList: React.FC = () => {
                                             <span className="font-medium">{biometrics[emp.id]?.total_face_biometrics || 0}</span>
                                             {biometrics[emp.id]?.total_face_biometrics > 0 && (
                                                 <button onClick={() => handleDeleteBiometric(emp.id, 'face')} className="text-red-400 hover:text-red-600 ml-1">
-                                                    <FontAwesomeIcon icon={faTrash} className="text-xs" />
+                                                    <FontAwesomeIcon icon={faTrash} className="text-lg" />
                                                 </button>
                                             )}
                                         </div>
@@ -113,13 +113,13 @@ export const EmployeeList: React.FC = () => {
                                             <span className="font-medium">{biometrics[emp.id]?.total_fingerprint_biometrics || 0}</span>
                                             {biometrics[emp.id]?.total_fingerprint_biometrics > 0 && (
                                                 <button onClick={() => handleDeleteBiometric(emp.id, 'fingerprint')} className="text-red-400 hover:text-red-600 ml-1">
-                                                    <FontAwesomeIcon icon={faTrash} className="text-xs" />
+                                                    <FontAwesomeIcon icon={faTrash} className="text-base" />
                                                 </button>
                                             )}
                                         </div>
                                         <button
                                             onClick={() => { setSelectedEmployee(emp); setIsBioModalOpen(true); }}
-                                            className="ml-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded text-xs font-medium transition-colors"
+                                            className="ml-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded text-sm font-medium transition-colors"
                                         >
                                             <FontAwesomeIcon icon={faPlus} />
                                         </button>
