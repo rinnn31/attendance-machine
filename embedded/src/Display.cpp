@@ -171,12 +171,12 @@ void Display::showConfigMode(const String& wifiName, const String& ip) {
     post([this, wifiName, ip] { doShowConfigMode(wifiName, ip); });
 }
 
-void Display::showIdle(const Status& status) {
-    post([this, status] { doShowIdle(status); });
+void Display::showIdle(const Status& status, const String& hint) {
+    post([this, status, hint] { doShowIdle(status, hint); });
 }
 
-void Display::showProcessing(Method method) {
-    post([this, method] { doShowProcessing(method); });
+void Display::showProcessing(Method method, const String& hint) {
+    post([this, method, hint] { doShowProcessing(method, hint); });
 }
 
 void Display::showCollecting(Method method, const String& hint) {
@@ -306,16 +306,20 @@ void Display::doShowConfigMode(const String& wifiName, const String& ip) {
     lv_obj_align(lbl, LV_ALIGN_CENTER, 0, 0);
 }
 
-void Display::doShowIdle(const Status& status) {
+void Display::doShowIdle(const Status& status, const String& hint) {
     storeStatus(status);
     lv_obj_t* content = beginScreen(true);
 
     lv_obj_t* card = makeCard(content, 210, 230, kColCard);
-    makeLabel(card, "SẴN SÀNG CHẤM CÔNG\n\nĐặt vân tay hoặc\nđứng trước Camera",
+    if (!hint.isEmpty()) {
+        makeLabel(card, hint.c_str(), &font_vietnamese_18, kColSubtext, 180);
+    } else {
+        makeLabel(card, "SẴN SÀNG CHẤM CÔNG\n\nĐặt vân tay hoặc\nđứng trước Camera",
               &font_vietnamese_18, kColText, 180);
+    }
 }
 
-void Display::doShowProcessing(Method method) {
+void Display::doShowProcessing(Method method, const String& hint) {
     lv_obj_t* content = beginScreen(true);
 
     lv_obj_t* spinner = lv_spinner_create(content);
@@ -323,8 +327,8 @@ void Display::doShowProcessing(Method method) {
     lv_obj_align(spinner, LV_ALIGN_CENTER, 0, -30);
     lv_spinner_set_anim_params(spinner, 1000, 60);
 
-    lv_obj_t* lbl = makeLabel(content,
-        method == Method::Face ? "Đang nhận diện khuôn mặt..." : "Đang kiểm tra vân tay...",
+    lv_obj_t* lbl = makeLabel(content, hint.isEmpty() ? 
+        (method == Method::Face ? "Đang nhận diện khuôn mặt..." : "Đang kiểm tra vân tay...") : hint.c_str(),
         &font_vietnamese_18, kColWhite, 220);
     lv_obj_align(lbl, LV_ALIGN_CENTER, 0, 40);
 }
@@ -366,7 +370,7 @@ void Display::doShowResult(ResultType result, const String& message, int duratio
         _resultTimer = lv_timer_create([](lv_timer_t* t) {
             Display* self = static_cast<Display*>(lv_timer_get_user_data(t));
             self->_resultTimer = nullptr; 
-            self->doShowIdle(self->_status);
+            self->doShowIdle(self->_status, "");
         }, (uint32_t)durationMs, this);
         lv_timer_set_repeat_count(_resultTimer, 1);
     }

@@ -148,7 +148,7 @@ export const BiometricCollectionModal: React.FC<Props> = ({ employeeId, isOpen, 
     const fetchDevices = async () => {
         setIsLoadingDevices(true);
         try {
-            const res = await deviceApi.getDevices();
+            const res = await deviceApi.getOnlineDevices();
             if (res.success && res.data) {
                 setDevices(res.data);
                 if (res.data.length > 0) {
@@ -196,28 +196,14 @@ export const BiometricCollectionModal: React.FC<Props> = ({ employeeId, isOpen, 
 
             setIsCollecting(true);
 
-            const downloadImage = (dataUrl: string, filename = 'fingerprint.png') => {
-                const link = document.createElement('a');
-                link.href = dataUrl;
-                link.download = filename;
-                document.body.appendChild(link);
-                link.click();
-                link.remove();
-            };
-
             try {
                 const res = await deviceApi.collectData(selectedDevice, deviceBiometricType);
                 if (res.success && res.data) {
                     setDevicePreviews(prev => [...prev, res.data]);
-                    toast.success('Đã nhận dữ liệu từ thiết bị, vui lòng kiểm tra và xác nhận!');
-                    const base64 = res.data;
-                    const dataUrl = `data:image/png;base64,${base64}`;
-
-                    downloadImage(dataUrl, 'fingerprint.png');
                 }
             } catch (error) {
                 console.error(error);
-                toast.error('Thu thập thất bại. Thiết bị có thể đã bị hủy hoặc mất kết nối!');
+                //toast.error('Thu thập thất bại. Thiết bị có thể đã bị hủy hoặc mất kết nối!');
             } finally {
                 setIsCollecting(false);
             }

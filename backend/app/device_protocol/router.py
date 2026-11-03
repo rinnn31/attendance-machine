@@ -11,25 +11,27 @@ async def websocket_endpoint(
     authorization: str | None = Header(default=None),
     x_client_id: str | None = Header(default=None),
 ):
-    
     await websocket.accept()
 
-    print("WebSocket connection established with header authorization:", authorization)
-    settings = get_settings()
-    if settings.AUTHORIZATION_TOKEN and settings.AUTHORIZATION_TOKEN != authorization:
-        await websocket.close(status.WS_1008_POLICY_VIOLATION)
-        return
+    device_manager: DeviceManager = websocket.app.state.device_manager
 
-    device_manager : DeviceManager = websocket.app.state.device_manager
-    if not x_client_id or device_manager.add_device(x_client_id, websocket) is False:
-        await websocket.close(status.WS_1008_POLICY_VIOLATION)
+    authenticated = False
+    if x_client_id:
+        authenticated = await device_manager.authenticate_or_queue_device(websocket, x_client_id, authorization)
+
+    if not authenticated:
+        try:
+            await websocket.close(status.WS_1008_POLICY_VIOLATION)
+        except RuntimeError:
+            pass
         return
 
     try:
         while True:
             data = await websocket.receive_bytes()
             await device_manager.handle_device_message(x_client_id, data)
-            
-    except WebSocketDisconnect:
-        device_manager.remove_device(x_client_id)
 
+    except WebSocketDisconnect:
+        pass
+    finally:
+        device_manager.remove_device(x_client_id, websocket)

@@ -12,9 +12,9 @@ constexpr uint8_t kSensitivityThreshold = 10;
 constexpr uint16_t kMinDistanceMm = 300;
 constexpr uint16_t kMaxDistanceMm = 600;
 
-constexpr uint8_t kDefaultStableFrameCount = 5;
-constexpr uint8_t kLostFaceFrameThreshold = 2;
-constexpr float kFaceDetectionScoreThreshold = 0.7f;
+constexpr uint8_t kDefaultStableFrameCount = 3;
+constexpr uint8_t kLostFaceFrameThreshold = 4;
+constexpr float kFaceDetectionScoreThreshold = 0.6f;
 
 FaceCamModule::FaceCamModule() :
     mDistanceSensorTaskHandle(nullptr),
@@ -37,7 +37,8 @@ FaceCamModule::FaceCamModule() :
     mFacePresent(false),
     mOutOfRangeCounter(0),
     mInRangeCounter(0),
-    mRunning(false) {
+    mRunning(false),
+    mWaitForAbsence(false) {
 }
 
 FaceCamModule::~FaceCamModule() {
@@ -58,6 +59,7 @@ bool FaceCamModule::begin() {
     if (!mDistanceSensor->begin(0x29, false, mToFSensorWire)) {
         return false;
     }
+    mDistanceSensor->setMeasurementTimingBudgetMicroSeconds(50000);
 
     // Initialize the camera
     camera_config_t config{};
@@ -177,12 +179,13 @@ void FaceCamModule::toggleCamera(bool enable) {
 
 void FaceCamModule::distanceSensorTask(void* arg) {
     FaceCamModule* self = static_cast<FaceCamModule*>(arg);
+    static int t = 0;
     while (self->mRunning) {
         if (self->mFaceDetectionEnabled && self->mDistanceSensor) {
             VL53L0X_RangingMeasurementData_t measure;
             self->mDistanceSensor->rangingTest(&measure, false);
 
-            if (measure.RangeMilliMeter <= kMaxDistanceMm) {
+            if (measure.RangeMilliMeter <= kMaxDistanceMm && measure.RangeStatus != 4) {
                 self->mOutOfRangeCounter = 0; // Reset out of range counter
                 
                 if (!self->mCameraEnabled) {
@@ -225,13 +228,20 @@ void FaceCamModule::cameraTask(void* arg) {
 
                 auto faces = self->mFaceDetector->run(img);
                 bool faceDetected = !faces.empty() && faces.front().score >= kFaceDetectionScoreThreshold;
+                if (!faces.empty() && faces.front().score > 0.5f) {
+                    ESP_LOGI(kTag, "Face detection score: %.2f", faces.front().score);
+                }
 
                 if (faceDetected) {
-                    ESP_LOGI(kTag, "Face detected with score: %.2f", faces.front().score);
+                    //ESP_LOGI(kTag, "Face detected with score: %.2f", faces.front().score);
 
                     auto& face = faces.front();
-                    self->postFacePresenceChangedEvent(true);
-                    if (self->trackFaceState(face.box[0], face.box[1], face.box[2] - face.box[0], face.box[3] - face.box[1], fb->width, fb->height)) {
+                    //self->postFacePresenceChangedEvent(true);
+                    if (self->mWaitForAbsence) {
+                        // The same person is still in front of the camera after a data collection:
+                        // don't start tracking (and so don't trigger attendance) until they have left.
+                        self->resetFaceTracking();
+                    } else if (self->trackFaceState(face.box[0], face.box[1], face.box[2] - face.box[0], face.box[3] - face.box[1], fb->width, fb->height)) {
                         self->resetFaceTracking();
                         if (self->mOnFaceStableCallback) {
                             self->mOnFaceStableCallback(fb->buf, fb->len, fb->width, fb->height);
@@ -242,6 +252,7 @@ void FaceCamModule::cameraTask(void* arg) {
 
                 } else {
                     if (self->mLostFaceFrameCounter++ >= kLostFaceFrameThreshold) {
+                        self->mWaitForAbsence = false; // Face really left, attendance can resume
                         self->postFacePresenceChangedEvent(false);
                         self->resetFaceTracking();
                         self->mLostFaceFrameCounter = 0; // Reset lost face counter after reporting
@@ -253,6 +264,11 @@ void FaceCamModule::cameraTask(void* arg) {
 
             vTaskDelay(pdMS_TO_TICKS(10));
         } else {
+            // Camera powered off by the distance sensor means the user walked away.
+            // (Detection merely toggled off must keep the flag, since the user may still be standing there.)
+            if (!self->mCameraEnabled) {
+                self->mWaitForAbsence = false;
+            }
             self->postFacePresenceChangedEvent(false);
             self->resetFaceTracking();
 
@@ -282,6 +298,11 @@ bool FaceCamModule::trackFaceState(int16_t faceX, int16_t faceY, size_t faceWidt
 
         bool ok = faceHeight  / (float)frameHeight > 0.3f && deltaX <= maxDeltaX && deltaY <= maxDeltaY;
         if (ok) {
+            if (mStableFrameCounter == 0) {
+                ESP_LOGI(kTag, "Face is stable. Starting stable frame count.");
+                postFacePresenceChangedEvent(true);
+            }
+
             mStableFrameCounter++;
             if (mStableFrameCounter >= mStableFrameCountThreshold) {
                 mStableFrameCounter = 0; // Reset counter after stable detection
@@ -303,6 +324,11 @@ void FaceCamModule::postFacePresenceChangedEvent(bool isFacePresent) {
             mOnFacePresenceChangedCallback(isFacePresent);
         }
     }
+}
+
+void FaceCamModule::requireFaceAbsence() {
+    mWaitForAbsence = true;
+    resetFaceTracking();
 }
 
 void FaceCamModule::resetFaceTracking() {

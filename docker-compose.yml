@@ -14,6 +14,11 @@ services:
       - "3306:3306" 
     volumes:
       - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   api:
     build:
@@ -28,12 +33,16 @@ services:
     environment:
       - DATABASE_URL=mysql+asyncmy://user:password@db:3306/attendx_db
       - PYTHONUNBUFFERED=1
+      - FACE_CAPTURE_IMAGE_PATH=/app/face_attendance/
     volumes:
-      - .:/app
+      - ./backend:/app
       - insightface_models:/root/.insightface
+      - face_attendance:/app/face_attendance
+      - face_engine:/root/.cache/face_engine
     depends_on:
       db:
-        condition: service_started
+        condition: service_healthy  # Đợi đến khi MySQL thực sự sẵn sàng
+
   web:
     build:
       context: ./frontend
@@ -45,6 +54,9 @@ services:
     depends_on:
       api:
         condition: service_started
+
 volumes:
   mysql_data:
   insightface_models:
+  face_attendance:
+  face_engine:

@@ -15,12 +15,18 @@ constexpr uint8_t kCollectFaceDataCommand = 1;
 constexpr uint8_t kCollectFingerprintDataCommand = 2;
 constexpr uint8_t kStopCollectingDataCommand = 3;
 
-constexpr uint32_t kPostAttendanceCooldownMs = 1000;
+constexpr uint32_t kResultDisplayMs = 2000;
+constexpr uint32_t kPostAttendanceCooldownMs = 500;
+constexpr uint32_t kDataCollectionTimeoutMs = 30000;
 
 constexpr const char* kNtpServer1 = "pool.ntp.org";
 constexpr const char* kNtpServer2 = "time.google.com";
 constexpr long kGmtOffsetSec = 7 * 3600;
 constexpr int kDaylightOffsetSec = 0;
+
+static inline bool isHoldingResult(uint32_t holdUntil) {
+    return (int32_t)(holdUntil - millis()) > 0; 
+}
 
 MainController::MainController() :
     mMessageClient(nullptr),
@@ -32,7 +38,8 @@ MainController::MainController() :
     mDataCollectionRequestId(0),
     mAttendanceQueue(nullptr),
     mWorkerTaskHandle(nullptr),
-    mAttendanceDoneSem(nullptr) {
+    mAttendanceDoneSem(nullptr),
+    mStartCollectionTimestamp(0) {
 }
 
 MainController::~MainController() {
@@ -95,7 +102,7 @@ void MainController::begin() {
     }
 
     ret = xTaskCreatePinnedToCore(
-        MainController::updateStatusDisplayTask,
+        MainController::updateTask,
         "StatusDisplayUpdater",
         4096,
         this,
@@ -121,7 +128,7 @@ void MainController::begin() {
         return;
     }
     mMessageClient = new MessageClient();
-    if (!mMessageClient->begin(BoardConfig::kDeviceSerial, config.wsHost, config.wsPort, config.authKey)) {
+    if (!mMessageClient->begin(BoardConfig::kDeviceSerial, config.wsHost, config.wsPort)) {
         ESP_LOGE(kTag, "Failed to initialize MessageClient.");
         return;
     }
@@ -148,13 +155,30 @@ void MainController::begin() {
         return;
     }
 
-    Display::getInstance().showIdle(Display::Status{});
+    Display::getInstance().showIdle(Display::Status{}, "Đang kết nối...");
 }
 
-void MainController::updateStatusDisplayTask(void* pvParameters) {
+void MainController::updateTask(void* pvParameters) {
     MainController* self = static_cast<MainController*>(pvParameters);
     while (true) {
-        self->updateStatusDisplay();
+        if (self->mRunningMode != DeviceState::kNormalState) {
+            uint32_t elapsed = millis() - self->mStartCollectionTimestamp;
+            if (elapsed > kDataCollectionTimeoutMs) {
+                ESP_LOGW(kTag, "Data collection timed out after %u ms.", elapsed);
+                self->mRunningMode = DeviceState::kNormalState;
+                self->mDataCollectionRequestId = 0;
+
+                if (self->mFaceCamModule && self->mReady && !self->mBusy) {
+                    self->mFaceCamModule->resetFaceTracking();
+                    self->mFaceCamModule->toggleFaceDetection(true);
+                }
+
+                Display::getInstance().showIdle(self->buildStatus());
+            }
+        }
+
+        Display::getInstance().updateStatus(self->buildStatus());
+
         vTaskDelay(pdMS_TO_TICKS(500));
     }
 }
@@ -189,12 +213,16 @@ void MainController::handleMessageClientStateChange(ClientState state) {
         if (mFaceCamModule && !mBusy) {
             mFaceCamModule->toggleFaceDetection(true);
         }
+
+        Display::getInstance().showIdle(buildStatus());
     } else {
         ESP_LOGW(kTag, "WebSocket disconnected or error occurred. State: %d", static_cast<int>(state));
         mReady = false;
         if (mFaceCamModule) {
             mFaceCamModule->toggleFaceDetection(false);
         }
+
+        Display::getInstance().showIdle(buildStatus(), "Đang kết nối...");
     }
 }
 
@@ -208,6 +236,8 @@ void MainController::handleCommandReceived(const uint8_t commandId, const size_t
                 sendDataCollectionResponse(requestId, false);
                 return;
             }
+
+            mStartCollectionTimestamp = millis();
 
             mRunningMode = DeviceState::kCollectingFaceDataState;
             mDataCollectionRequestId = requestId;
@@ -228,6 +258,8 @@ void MainController::handleCommandReceived(const uint8_t commandId, const size_t
                 sendDataCollectionResponse(requestId, false);
                 return;
             }
+
+            mStartCollectionTimestamp = millis();
 
             mRunningMode = DeviceState::kCollectingFingerprintDataState;
             mDataCollectionRequestId = requestId;
@@ -254,7 +286,7 @@ void MainController::handleCommandReceived(const uint8_t commandId, const size_t
             responsePayload[MessageClient::kFixedHeaderLength] = 1;
             mMessageClient->sendResponse(requestId, responsePayload, sizeof(responsePayload), true);
 
-            Display::getInstance().showIdle(Display::Status{});
+            Display::getInstance().showIdle(buildStatus());
             break;
         }
 
@@ -265,6 +297,22 @@ void MainController::handleCommandReceived(const uint8_t commandId, const size_t
 }
 
 void MainController::handleFacePresenceChanged(bool isFacePresent) {
+    if (mBusy) return;
+
+    if (mRunningMode == DeviceState::kNormalState) {
+        if (isFacePresent) {
+            Display::getInstance().showCollecting(Display::Method::Face, "Đang nhận diện khuôn mặt. Vui lòng đứng yên...");
+        } else {
+            Display::getInstance().showIdle(buildStatus());
+        }
+    } else if (mRunningMode == DeviceState::kCollectingFaceDataState) {
+        if (isFacePresent) {
+            Display::getInstance().showCollecting(Display::Method::Face, "Đang chụp khuôn mặt. Vui lòng đứng yên... ");
+        } else {
+            Display::getInstance().showCollecting(Display::Method::Face, "Không phát hiện khuôn mặt. Vui lòng đứng trước camera...");
+        }
+    }
+
 }
 
 void MainController::handleFaceStable(const uint8_t* image, size_t imageSize, size_t width, size_t height) {
@@ -293,12 +341,26 @@ void MainController::handleFaceStable(const uint8_t* image, size_t imageSize, si
 }
 
 void MainController::handleFingerprintSensorStateChange(bool isFingerDetected) {
-    if (!isFingerDetected) return;
+    if (!isFingerDetected) {
+        if (mBusy || isHoldingResult(mResultHoldUntilMs)) return;
 
-    if (!mReady || mBusy) return;
-    if (mRunningMode != DeviceState::kNormalState && mRunningMode != DeviceState::kCollectingFingerprintDataState) {
+        if (mRunningMode == DeviceState::kCollectingFingerprintDataState) {
+            Display::getInstance().showCollecting(Display::Method::Fingerprint, "Vui lòng đặt ngón tay lên cảm biến...");
+        } else if (mRunningMode == DeviceState::kNormalState) {
+            Display::getInstance().showIdle(buildStatus());
+        }
         return;
     }
+    
+
+    if (!mReady || mBusy) return;
+    if (mRunningMode.load()!= DeviceState::kNormalState && mRunningMode.load() != DeviceState::kCollectingFingerprintDataState) {
+        return;
+    }
+
+    Display::getInstance().showCollecting(Display::Method::Fingerprint, "Đang chụp ảnh vân tay...");
+
+    mBusy = true;
 
     AttendanceEvent ev;
     ev.type = AttendanceEventType::kFingerprintDetected;
@@ -307,10 +369,12 @@ void MainController::handleFingerprintSensorStateChange(bool isFingerDetected) {
     ev.width = 0;
     ev.height = 0;
 
-    xQueueSend(mAttendanceQueue, &ev, 0);
+    if (xQueueSend(mAttendanceQueue, &ev, 0) != pdTRUE) {
+        mBusy = false;
+    }
 }
 
-void MainController::updateStatusDisplay() {
+Display::Status MainController::buildStatus() {
     Display::Status status;
     status.wifiConnected = WiFi.isConnected();
     status.serverConnected = mMessageClient ? mMessageClient->isConnected() : false;
@@ -328,7 +392,7 @@ void MainController::updateStatusDisplay() {
     strftime(timeBuffer, sizeof(timeBuffer), "%H:%M:%S", &timeinfo);
     status.time = String(timeBuffer);
 
-    Display::getInstance().updateStatus(status);
+    return status;
 }
 
 void MainController::attendanceWorkerTask(void* pvParameters) {
@@ -350,8 +414,14 @@ void MainController::attendanceWorkerTask(void* pvParameters) {
                     } else if (self->mRunningMode == DeviceState::kCollectingFaceDataState) {
                         self->sendDataCollectionResponse(self->mDataCollectionRequestId, true, jpgBuf, jpgSize);
                         self->mRunningMode = DeviceState::kNormalState;
+
+                        // The person is still standing in front of the camera: don't let the same face
+                        // trigger attendance as soon as detection is re-enabled. Wait until they leave.
+                        if (self->mFaceCamModule) {
+                            self->mFaceCamModule->requireFaceAbsence();
+                        }
                     }
-    
+
                     free(jpgBuf);
                 } else {
                     ESP_LOGE(kTag, "Failed to compress face image to JPEG.");
@@ -362,6 +432,10 @@ void MainController::attendanceWorkerTask(void* pvParameters) {
                 }
 
             } else if (ev.type == AttendanceEventType::kFingerprintDetected) {
+
+                // delay a bit to ensure the fingerprint sensor has enough time to capture the image
+                vTaskDelay(pdMS_TO_TICKS(100));
+
                 if (self->mFingerprintModule->takeImage()) {
                     const uint8_t* rawImage = self->mFingerprintModule->getNewestRawImage();
                     if (rawImage) {
@@ -403,6 +477,10 @@ void MainController::attendanceWorkerTask(void* pvParameters) {
                 vTaskDelay(pdMS_TO_TICKS(50));
             }
 
+            while (isHoldingResult(self->mResultHoldUntilMs)) {
+                vTaskDelay(pdMS_TO_TICKS(50));
+            }
+
             vTaskDelay(pdMS_TO_TICKS(kPostAttendanceCooldownMs));
 
             if (self->mFaceCamModule) {
@@ -413,6 +491,8 @@ void MainController::attendanceWorkerTask(void* pvParameters) {
             }
 
             self->mBusy = false;
+
+            Display::getInstance().showIdle(self->buildStatus());
         }
     }
 }
@@ -450,15 +530,15 @@ bool MainController::sendAttendanceData(BiometricType type, const uint8_t* image
             ESP_LOGI(kTag, "Got server response for attendance data.");
 
             uint8_t status = response[0];
+            ESP_LOGI(kTag, "Server response status: %d", status);
+            mResultHoldUntilMs = millis() + kResultDisplayMs;
             if (status == 1) {
-                ESP_LOGI(kTag, "Attendance data accepted by server.");
-                
-                String fullName = String(reinterpret_cast<const char*>(response + 1));
-                Display::getInstance().showResult(Display::ResultType::Success, "Chấm công thành công", 2000, fullName);
+                String fullName(reinterpret_cast<const char*>(response + 1));
+                Display::getInstance().showResult(Display::ResultType::Success, "Chấm công thành công", kResultDisplayMs, fullName);
             } else {
-                ESP_LOGW(kTag, "Attendance data rejected by server.");
-                Display::getInstance().showResult(Display::ResultType::Failed, "Chấm công thất bại");
+                Display::getInstance().showResult(Display::ResultType::Failed, "Chấm công thất bại", kResultDisplayMs);
             }
+
         } else {
             Display::getInstance().showResult(Display::ResultType::Failed, "Chấm công thất bại");
             ESP_LOGW(kTag, "Failed to send attendance data or response timed out.");
@@ -478,12 +558,15 @@ void MainController::sendDataCollectionResponse(uint16_t requestId, bool success
         return;
     }
 
+    Display::getInstance().showProcessing(mRunningMode == DeviceState::kCollectingFaceDataState ? Display::Method::Face : Display::Method::Fingerprint, "Đang gửi dữ liệu đến máy chủ...");
+
     size_t payloadSize = MessageClient::kFixedHeaderLength + 1 + dataSize;
     uint8_t* payload = (uint8_t*)heap_caps_calloc(1, payloadSize, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     if (!payload) {
         ESP_LOGE(kTag, "Failed to allocate memory for data collection response payload.");
         return;
     }
+
 
     payload[MessageClient::kFixedHeaderLength] = success ? 1 : 0;
     if (data && dataSize > 0) {
@@ -492,6 +575,4 @@ void MainController::sendDataCollectionResponse(uint16_t requestId, bool success
 
     mMessageClient->sendResponse(requestId, payload, payloadSize, true);
     free(payload);
-
-    Display::getInstance().showIdle(Display::Status{});
 }

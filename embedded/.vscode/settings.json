@@ -1,7 +1,11 @@
 {
   "editor.quickSuggestions": {
-    "other": "inline",
+    "other": "on",
     "comments": "off",
     "strings": "off"
   },
+  "editor.tabSize": 4,
+  "cmake.autoSelectActiveFolder": false,
+"cmake.enableAutomaticKitScan": false,
+"C_Cpp.errorSquiggles": "disabled"
 }

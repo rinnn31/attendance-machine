@@ -115,14 +115,12 @@ void WebPortal::handleSaveConfig(AsyncWebServerRequest *request, String *jsonStr
         return;
     }
 
-    DeviceConfiguration newConfig;
+    DeviceConfiguration newConfig = ConfigService::getInstance()->getDeviceConfig();
     newConfig.deviceApPassword = jsonDoc["deviceApPassword"].as<String>();
     newConfig.wifiSsid = jsonDoc["wifiSsid"].as<String>();
     newConfig.wifiPassword = jsonDoc["wifiPassword"].as<String>();
     newConfig.wsHost = jsonDoc["wsHost"].as<String>();
     newConfig.wsPort = jsonDoc["wsPort"].as<uint16_t>();
-    newConfig.authKey = jsonDoc["authKey"].as<String>();
-
     ConfigService::getInstance()->saveConfig(newConfig);
 
     request->send(200, "application/json", "{\"status\":\"success\"}");

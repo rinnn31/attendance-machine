@@ -1,11 +1,11 @@
 import React from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUsers, faChartBar } from '@fortawesome/free-solid-svg-icons';
+import { faUsers, faChartBar, faPhone } from '@fortawesome/free-solid-svg-icons';
 
 interface Props {
     children: React.ReactNode;
-    activeTab: 'employee' | 'attendance';
-    setActiveTab: (tab: 'employee' | 'attendance') => void;
+    activeTab: 'employee' | 'attendance' | 'device';
+    setActiveTab: (tab: 'employee' | 'attendance' | 'device') => void;
 }
 
 export const Layout: React.FC<Props> = ({ children, activeTab, setActiveTab }) => {
@@ -30,6 +30,14 @@ export const Layout: React.FC<Props> = ({ children, activeTab, setActiveTab }) =
                         <FontAwesomeIcon icon={faUsers} className="text-lg w-6" />
                         <span className="font-semibold whitespace-nowrap">Nhân Viên</span>
                     </button>
+                    <button
+                        onClick={() => setActiveTab('device')}
+                        className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 ${activeTab === 'device' ? 'bg-blue-50 text-blue-700 shadow-sm border border-blue-100' : 'text-gray-600 hover:bg-gray-50 hover:text-blue-600 border border-transparent'}`}
+                    >
+                        <FontAwesomeIcon icon={faPhone} className="text-lg w-6" />
+                        <span className="font-semibold whitespace-nowrap">Thiết Bị</span>
+                    </button>
+                    
                     <button
                         onClick={() => setActiveTab('attendance')}
                         className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 ${activeTab === 'attendance' ? 'bg-blue-50 text-blue-700 shadow-sm border border-blue-100' : 'text-gray-600 hover:bg-gray-50 hover:text-blue-600 border border-transparent'}`}

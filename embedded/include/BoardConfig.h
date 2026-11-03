@@ -22,6 +22,8 @@ inline constexpr uint32_t kMinModeSwitchPressDurationMs = 3000;
 
 inline constexpr uint8_t kModeSwitchButtonPin = 3;
 inline constexpr uint8_t kFingerprintSensorWakeupPin = 14;  
+inline constexpr uint8_t kFingerprintRxPin = 38;
+inline constexpr uint8_t kFingerprintTxPin = 1;
 
 inline constexpr uint8_t kToFSensorSclPin = 39;
 inline constexpr uint8_t kToFSensorSdaPin = 40;

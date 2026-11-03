@@ -24,6 +24,7 @@ public:
     void resetFaceTracking();
     void onFaceStable(OnFaceStableCallback callback) { mOnFaceStableCallback = callback; }
     void onFacePresenceChanged(OnFacePresenceChangedCallback callback) { mOnFacePresenceChangedCallback = callback; }
+    void requireFaceAbsence();
 
 private:
     static void distanceSensorTask(void* arg);
@@ -60,6 +61,7 @@ private:
     uint8_t mInRangeCounter;
 
     std::atomic<bool> mRunning;
+    std::atomic<bool> mWaitForAbsence;
 };
 
 #endif // FACE_CAM_MODULE_H

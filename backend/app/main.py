@@ -52,11 +52,12 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
+
+os.makedirs(get_settings().FACE_CAPTURE_IMAGE_PATH, exist_ok=True)
+app.mount("/files", StaticFiles(directory=get_settings().FACE_CAPTURE_IMAGE_PATH), name="files")
+
 app.include_router(employee_router, prefix="/api")
 app.include_router(biometric_router, prefix="/api")
 app.include_router(attendance_router, prefix="/api")
 app.include_router(device_router, prefix="/api")
 app.include_router(device_protocol_router)
-
-os.makedirs(get_settings().FACE_CAPTURE_IMAGE_PATH, exist_ok=True)
-app.mount("/files", StaticFiles(directory=get_settings().FACE_CAPTURE_IMAGE_PATH), name="files")

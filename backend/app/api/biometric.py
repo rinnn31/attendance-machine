@@ -40,9 +40,13 @@ async def add_biometric_data(
 @router.delete(path="/{employee_id}/{biometric_type}")
 async def delete_biometric_data(
     employee_id: int, 
-    biometric_type: DBBiometricType, 
-    db=Depends(get_database)
+    biometric_type: str, 
+    db=Depends(get_database),
+    face_recognition=Depends(get_face_recognition),
+    fingerprint_recognition=Depends(get_fingerprint_recognition)
 ) -> Response[None]:
-    biometric_service = BiometricService(db)
+    biometric_type = DBBiometricType.FACE if biometric_type.lower() == "face" else DBBiometricType.FINGERPRINT
+    
+    biometric_service = BiometricService(db, face_recognition, fingerprint_recognition)
     await biometric_service.clear_biometric_data(employee_id, biometric_type)
     return Response.make_success()

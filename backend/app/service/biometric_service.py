@@ -32,7 +32,7 @@ class BiometricService:
         for face_data_b64 in face_datas:
             face_data = base64.b64decode(face_data_b64)
 
-            info = self._face_recognition.extract_faces_data(face_data)
+            info = self._face_recognition.extract_faces_data(face_data, check_liveness=False)
             if info is None or len(info) != 1 or info[0].score < 0.5:
                 continue
 

@@ -45,7 +45,7 @@ public:
 
     MessageClient();
     ~MessageClient();
-    bool begin(const String& clientId, const String& host, uint16_t port, const String& authKey);
+    bool begin(const String& clientId, const String& host, uint16_t port);
     void end();
     bool isConnected() const {
         return mSocketClient && mSocketClient->isConnected();

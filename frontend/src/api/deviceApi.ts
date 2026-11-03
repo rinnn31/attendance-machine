@@ -2,8 +2,8 @@ import { apiClient } from './client';
 import type { ApiResponse } from '../types';
 
 export const deviceApi = {
-    getDevices: async (): Promise<ApiResponse<string[]>> => {
-        const response = await apiClient.get('/devices/');
+    getOnlineDevices: async (): Promise<ApiResponse<string[]>> => {
+        const response = await apiClient.get('/devices/active');
         return response.data;
     },
 
@@ -14,6 +14,26 @@ export const deviceApi = {
 
     cancelCollect: async (deviceId: string): Promise<ApiResponse<any>> => {
         const response = await apiClient.post(`/devices/${deviceId}/cancel_collect`);
+        return response.data;
+    },
+
+    getAllDevices: async (): Promise<ApiResponse<{ [deviceId: string]: string }>> => {
+        const response = await apiClient.get('/devices');
+        return response.data;
+    },
+
+    approveDevice: async (deviceId: string): Promise<ApiResponse<any>> => {
+        const response = await apiClient.post(`/devices/${deviceId}/approve`);
+        return response.data;
+    },
+
+    rejectDevice: async (deviceId: string): Promise<ApiResponse<any>> => {
+        const response = await apiClient.post(`/devices/${deviceId}/reject`);
+        return response.data;
+    },
+
+    forgetDevice: async (deviceId: string): Promise<ApiResponse<any>> => {
+        const response = await apiClient.delete(`/devices/${deviceId}/forget`);
         return response.data;
     }
 };

@@ -12,6 +12,7 @@ class ServerToDeviceCommand(enum.Enum):
     COLLECT_FACE_DATA = 1
     COLLECT_FINGERPRINT_DATA = 2
     CANCEL_COLLECTING_DATA = 3
+    SET_AUTH = 4
 
 class DeviceToServerCommand(enum.Enum):
     ATTENDANCE_REQUEST = 1
@@ -105,4 +106,11 @@ def build_attendance_response_payload(request_id: int, result: str) -> bytes:
     return build_response_message(
         request_id,
         status_byte + name_bytes
+    )
+
+def build_set_auth_command_payload(request_id: int, auth_key: str) -> bytes:
+    return build_request_message(
+        request_id,
+        ServerToDeviceCommand.SET_AUTH.value,
+        auth_key.encode('utf-8')
     )

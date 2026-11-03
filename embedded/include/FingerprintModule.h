@@ -1,11 +1,14 @@
 #ifndef FINGERPRINT_MODULE_H
 #define FINGERPRINT_MODULE_H
 
+#include <Arduino.h>
+#include <HardwareSerial.h>
 #include <stdint.h>
 #include <functional>
-#include <usb/usb_host.h>
+#include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
 #include <freertos/task.h>
+#include <Adafruit_Fingerprint.h>
 
 using SensorStateChangedCallback = std::function<void(bool isFingerDetected)>;
 
@@ -16,7 +19,7 @@ public:
 
     FingerprintModule();
     ~FingerprintModule();
-    
+
     bool begin();
     void end();
 
@@ -27,33 +30,22 @@ public:
     const uint8_t* getLastRawImage() const { return mImageBuffer; }
 
 private:
-    static void usbEventTask(void* arg);
     static void sensorStateCheckingTask(void* arg);
-    static IRAM_ATTR void onSensorWakeupInterrupt(void* arg);
+    static void IRAM_ATTR onSensorWakeupInterrupt(void* arg);
 
-    bool checkPacket(const char* ctx, const uint8_t* packet, size_t length, size_t expectedLength);
-    void handleClientEvent(const usb_host_client_event_msg_t *event_msg, void *arg);
-    bool sendPacket(const uint8_t* data, size_t length);
-    bool receivePacket(uint8_t* buffer, size_t bufferSize, size_t* actualLength, uint32_t timeoutMs);
+    bool readExact(uint8_t* buffer, size_t length, uint32_t timeoutMs);
+    bool readDataPacket(uint8_t* payload, size_t payloadCapacity, size_t* payloadLength, uint8_t* pid, uint32_t timeoutMs);
 
     SensorStateChangedCallback mSensorStateChangedCallback;
     TaskHandle_t mSensorStateTaskHandle;
 
-    usb_host_client_handle_t mClientHandle;
-    usb_device_handle_t mDeviceHandle;
-    TaskHandle_t mHostTaskHandle;
-
-    bool mIsDeviceConnected;
-    uint8_t mBulkOutEp;
-    uint8_t mBulkInEp;
-
-    usb_transfer_t* mOutTransfer;
-    usb_transfer_t* mInTransfer;
-    SemaphoreHandle_t mTransferDoneSem;
+    HardwareSerial mSerial;
+    Adafruit_Fingerprint* mFinger;
+    bool mIsSensorReady;
 
     SemaphoreHandle_t mTouchSem;
 
     uint8_t* mImageBuffer;
-};  
+};
 
 #endif // FINGERPRINT_MODULE_H

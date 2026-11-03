@@ -204,7 +204,7 @@ export const AttendanceStats: React.FC = () => {
                                 </td>
                                 <td className="p-4 text-lg text-gray-600">
                                     {record.face_capture_image ? (
-                                        <img src={record.face_capture_image} alt="Face Capture" className="w-20 h-20 object-cover rounded-lg border border-gray-200" />
+                                        <img src={'http://localhost:8000'+record.face_capture_image} alt="Face Capture" className="w-20 h-20 object-cover rounded-lg border border-gray-200" />
                                     ) : (
                                         <span className="text-gray-400 font-medium">Không có</span>
                                     )}

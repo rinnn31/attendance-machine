@@ -15,6 +15,7 @@ dependencies = [
     "SQLAlchemy[asyncio]",
     "asyncmy",
     "insightface",
+    "face-engine[insightface]",
     "opencv-python-headless",
     "numpy",
     "greenlet",

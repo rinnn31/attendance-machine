@@ -13,6 +13,7 @@
 #include "MessageClient.h"
 #include "FaceCamModule.h"  
 #include "FingerprintModule.h"
+#include "Display.h"
 
 enum class DeviceState : uint8_t {
     kNormalState = 0,
@@ -57,10 +58,10 @@ private:
     bool sendAttendanceData(BiometricType type, const uint8_t* data, size_t dataSize);
     void sendDataCollectionResponse(uint16_t requestId, bool success, const uint8_t* data = nullptr, size_t dataSize = 0);
 
-    void updateStatusDisplay();
+    Display::Status buildStatus();
 
     static void attendanceWorkerTask(void* pvParameters);
-    static void updateStatusDisplayTask(void* pvParameters);
+    static void updateTask(void* pvParameters);
     
     MessageClient* mMessageClient;
     FaceCamModule* mFaceCamModule;
@@ -77,6 +78,10 @@ private:
     QueueHandle_t mAttendanceQueue;
     TaskHandle_t mWorkerTaskHandle;
     SemaphoreHandle_t mAttendanceDoneSem;
+
+    uint32_t mStartCollectionTimestamp;
+
+    std::atomic<uint32_t> mResultHoldUntilMs{0};
 };
 
 #endif // MAIN_CONTROLLER_H

@@ -11,11 +11,6 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
 
-// Quy tắc luồng:
-//  - begin() và taskHandler() chỉ được gọi từ task main (loop()).
-//  - Các hàm showXxx() / updateStatus() an toàn khi gọi từ BẤT KỲ task nào (mạng, vân tay, camera...).
-//    Chúng chỉ đẩy lệnh vào hàng đợi và trả về ngay; lệnh được thực thi trong taskHandler()
-//    nên mọi lời gọi LVGL / SPI luôn nằm trong task main.
 class Display {
 public:
     enum class BootType { Configuration, Normal };
@@ -43,8 +38,8 @@ public:
     void showBootMode(BootType mode);
     void showConfigMode(const String& wifiName, const String& ip);
 
-    void showIdle(const Status& status);
-    void showProcessing(Method method);
+    void showIdle(const Status& status, const String& hint = "");
+    void showProcessing(Method method, const String& hint = "");
     void showCollecting(Method method, const String& hint = "");
     void showResult(ResultType result, const String& message, int durationMs = 2000, const String& fullName = "");
 
@@ -82,8 +77,8 @@ private:
 
     void doShowBootMode(BootType mode);
     void doShowConfigMode(const String& wifiName, const String& ip);
-    void doShowIdle(const Status& status);
-    void doShowProcessing(Method method);
+    void doShowIdle(const Status& status, const String& hint);
+    void doShowProcessing(Method method, const String& hint);
     void doShowCollecting(Method method, const String& hint);
     void doShowResult(ResultType result, const String& message, int durationMs, const String& fullName);
     void doUpdateStatus(const Status& status);

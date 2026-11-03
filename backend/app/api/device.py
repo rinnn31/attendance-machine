@@ -7,8 +7,8 @@ from app.schemas import Response
 
 router = APIRouter(tags=["Device"], prefix="/devices")
 
-@router.get(path="/")
-async def list_devices(device_manager: DeviceManager = Depends(get_device_manager)) -> Response[list[str]]:
+@router.get(path="/active")
+async def list_active_devices(device_manager: DeviceManager = Depends(get_device_manager)) -> Response[list[str]]:
     return Response.make_success(data=device_manager.get_device_ids())
 
 @router.post(path="/{device_id}/collect/{biometric_type}", response_model=Response)
@@ -26,3 +26,28 @@ async def collect_data(device_id: str, biometric_type: str, device_manager: Devi
 async def cancel_collect_data(device_id: str, device_manager: DeviceManager = Depends(get_device_manager)) -> Response[None]:
     await device_manager.cancel_collect_data(device_id)
     return Response.make_success()
+
+@router.get(path="/")
+def list_devices(device_manager: DeviceManager = Depends(get_device_manager)) -> Response[dict[str, str]]:
+    return Response.make_success(data=device_manager.get_devices())
+
+@router.post(path="/{device_id}/approve")
+async def approve_device(device_id: str, device_manager: DeviceManager = Depends(get_device_manager)) -> Response[None]:
+    if device_manager.approve_device(device_id):
+        return Response.make_success()
+    else:
+        return Response.make_error(message="Device not found or already approved.")
+
+@router.delete(path="/{device_id}/forget")
+async def forget_device(device_id: str, device_manager: DeviceManager = Depends(get_device_manager)) -> Response[None]:
+    if await device_manager.forget_device(device_id):
+        return Response.make_success()
+    else:
+        return Response.make_error(message="Device not found.")
+
+@router.post(path="/{device_id}/reject")
+async def reject_device(device_id: str, device_manager: DeviceManager = Depends(get_device_manager)) -> Response[None]:
+    if device_manager.reject_device(device_id):
+        return Response.make_success()
+    else:
+        return Response.make_error(message="Device not found or already rejected.")

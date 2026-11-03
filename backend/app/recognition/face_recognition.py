@@ -3,6 +3,7 @@ import cv2
 import insightface
 import re
 import numpy as np 
+import face_engine
 
 from app.core.config import get_settings
 
@@ -17,13 +18,16 @@ class FaceRecognition:
     def __init__(self):
         use_cuda = get_settings().USE_CUDA
 
-        self._model = insightface.app.FaceAnalysis(
-            name='buffalo_l' if use_cuda else 'buffalo_s'
+        self._antispoof = face_engine.FaceEngine(antispoof="minifasnet", embedder="")
+        self._embedder = insightface.app.FaceAnalysis(
+            name= "buffalo_l" if use_cuda else "buffalo_s"
         )
+
         det_size = get_settings().FACE_IMAGE_DATA_SIZE
+        print(f"Initializing FaceRecognition with det_size: {det_size} and use_cuda: {use_cuda}")
         if re.match(r'^\d+x\d+$', det_size):
             width, height = map(int, det_size.split('x'))
-            self._model.prepare(
+            self._embedder.prepare(
                 ctx_id=0 if use_cuda else -1,
                 det_size=(width, height)
             )
@@ -43,14 +47,30 @@ class FaceRecognition:
         if employee_id in self._face_embeddings:
             del self._face_embeddings[employee_id]
 
-    def extract_faces_data(self, image: bytes) -> list[FaceData]:
+    def extract_faces_data(self, image: bytes, check_liveness: bool = True) -> list[FaceData]:
         nparr = np.frombuffer(image, np.uint8)
         img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-        
-        faces = self._model.get(img)
+
+        print("Extracting face data from image with size:", len(image), "bytes", "and shape:", img.shape if img is not None else "None")
+        faces = self._embedder.get(img)
         faces_data = []
         for face in faces:
             print(f"Detected face with score {face.det_score}, bounding box {face.bbox}, and pose {face.pose}")
+
+            if check_liveness:
+                try:
+                    print(face.bbox)
+                    liveness_score = self._antispoof.check_liveness(img, [face.bbox])
+                #print(f"Liveness score for detected face: {liveness_score}")
+                    print(liveness_score)
+                    if liveness_score[0] < 0.5:
+                        print("Face failed liveness check, skipping.")
+                        continue
+                except Exception as e:
+                    import traceback
+                    print("Error during liveness check:", e)
+                    traceback.print_exc()
+            
             face_data = FaceData(
                 embedding=face.embedding.tolist(),
                 bounding_box=tuple(face.bbox.astype(int)),

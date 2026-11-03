@@ -1,3 +1,4 @@
+import numpy as np
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timedelta
@@ -20,7 +21,7 @@ class AttendanceService:
         start_time = datetime.strptime(start_date, "%Y-%m-%d")
         end_time = datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)
 
-        stmt = select(AttendanceRecord.timestamp, AttendanceRecord.device_id, AttendanceRecord.biometric_type)\
+        stmt = select(AttendanceRecord.timestamp, AttendanceRecord.device_id, AttendanceRecord.biometric_type, AttendanceRecord.face_capture_image)\
                .where(AttendanceRecord.employee_id == employee_id)\
                .where(AttendanceRecord.timestamp >= start_time)\
                .where(AttendanceRecord.timestamp < end_time)\
@@ -34,7 +35,7 @@ class AttendanceService:
                 timestamp=int(record["timestamp"].timestamp()),
                 device_id=record["device_id"],
                 biometric_type=record["biometric_type"],
-                face_capture_image="/files/"+record.get("face_capture_image") if record.get("face_capture_image") else None
+                face_capture_image=("/files/"+ record["face_capture_image"]) if record["face_capture_image"] else None
             )
             for record in attendance_records
         ]
@@ -45,7 +46,7 @@ class AttendanceService:
         start_time = datetime.strptime(date, "%Y-%m-%d")
         end_time = start_time + timedelta(days=1)
 
-        stmt = select(AttendanceRecord.employee_id, AttendanceRecord.device_id, AttendanceRecord.timestamp, AttendanceRecord.biometric_type, Employee.full_name)\
+        stmt = select(AttendanceRecord.employee_id, AttendanceRecord.device_id, AttendanceRecord.timestamp, AttendanceRecord.biometric_type, AttendanceRecord.face_capture_image, Employee.full_name)\
                 .join(Employee, AttendanceRecord.employee_id == Employee.id)\
                 .where(AttendanceRecord.timestamp >= start_time)\
                 .where(AttendanceRecord.timestamp < end_time)\
@@ -60,7 +61,7 @@ class AttendanceService:
                 device_id=record["device_id"],
                 timestamp=int(record["timestamp"].timestamp()),
                 biometric_type=record["biometric_type"],
-                face_capture_image="/files/"+record.get("face_capture_image") if record.get("face_capture_image") else None
+                face_capture_image=("/files/"+ record["face_capture_image"]) if record["face_capture_image"] else None
             )
             for record in attendance_records
         ]
@@ -91,9 +92,9 @@ class AttendanceService:
             if face_h < img_height * 0.2:
                 continue
 
-            # # Bỏ qua các khuôn mặt ở rìa
-            # if abs(face_cx - img_cx) > img_width * 0.25 or abs(face_cy - img_cy) > img_height * 0.25:
-            #     continue
+            # Bỏ qua các khuôn mặt ở rìa
+            if abs(face_cx - img_cx) > img_width * 0.25 or abs(face_cy - img_cy) > img_height * 0.25:
+                continue
 
             # Bỏ qua các khuôn mặt bị nghiêng quá nhiều
             if abs(face.pose[0]) > 20 or abs(face.pose[1]) > 20:
@@ -130,11 +131,12 @@ class AttendanceService:
                     if primary_face and primary_face.score >= 0.5:
                         employee_id = self._face_recognition.recognize_face(primary_face.embedding)
 
-                        img = cv2.imdecode(biometric_data, cv2.IMREAD_COLOR)
+                        img = cv2.imdecode(np.frombuffer(biometric_data, np.uint8), cv2.IMREAD_COLOR)
                         x1, y1, x2, y2 = primary_face.bounding_box
                         img = cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
                         face_capture_image_file_name = hashlib.md5(f"{employee_id}_{timestamp}".encode()).hexdigest() + ".jpg"
+                        print(f"Saving face capture image to {get_settings().FACE_CAPTURE_IMAGE_PATH + face_capture_image_file_name}")
                         cv2.imwrite(get_settings().FACE_CAPTURE_IMAGE_PATH + face_capture_image_file_name, img)
 
                 

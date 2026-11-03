@@ -2,6 +2,8 @@
 #include <esp_log.h>
 #include <atomic>
 
+#include "ConfigService.h"
+
 constexpr const char* kTag = "MessageClient";
 
 constexpr uint8_t kMessageTypeCommand = 1;
@@ -9,6 +11,9 @@ constexpr uint8_t kMessageTypeResponse = 2;
 
 constexpr uint32_t kResponseTimeoutMs = 5000;
 constexpr uint32_t kResponseCheckIntervalMs = 500;
+
+// Special command ID for setting the authentication key on the server
+constexpr uint8_t kSetAuthKeyCommand = 4;
 
 uint16_t generateRequestId() {
     static std::atomic<uint16_t> requestIdCounter = 0;
@@ -31,17 +36,19 @@ MessageClient::~MessageClient() {
     end();
 }
 
-bool MessageClient::begin(const String& clientId, const String& host, uint16_t port, const String& authKey) {
+bool MessageClient::begin(const String& clientId, const String& host, uint16_t port) {
     mWsMutex = xSemaphoreCreateMutex();
     if (!mWsMutex) {
         ESP_LOGE(kTag, "Failed to create WS Mutex");
         return false;
     }
 
+    auto config = ConfigService::getInstance()->getDeviceConfig();
+
     mSocketClient = new WebSocketsClient();
     mSocketClient->begin(host.c_str(), port, "/ws");
     mSocketClient->onEvent(std::bind(&MessageClient::handleWebSocketEvent, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
-    mSocketClient->setAuthorization(authKey.c_str());
+    mSocketClient->setAuthorization(config.authKey.c_str());
     mSocketClient->setReconnectInterval(5000);
     mSocketClient->setExtraHeaders((String("X-Client-ID: ") + clientId).c_str());
     
@@ -141,10 +148,38 @@ void MessageClient::processMessageTask(void* pvParameters) {
             switch (messageInfo->messageType)
             {
             case kMessageTypeCommand: {
+                ESP_LOGI(kTag, "Received command: requestId=%d, payloadLength=%d", messageInfo->requestId, messageInfo->payloadLength);
                 if (!self->mRequestCallback) break;
                 if (messageInfo->payloadLength < 1) break; 
 
                 uint8_t commandId = static_cast<uint8_t>(messageInfo->payload[0]);
+
+                // Check if the command is kSetAuthKeyCommand, if so, update the authKey in ConfigService
+                if (commandId == kSetAuthKeyCommand) {
+                    String newAuthKey = "";
+                    if (messageInfo->payloadLength > 1) {
+                        newAuthKey = String(reinterpret_cast<char*>(messageInfo->payload + 1), messageInfo->payloadLength - 1);
+                    }
+                    
+                    auto config = ConfigService::getInstance()->getDeviceConfig();
+                    config.authKey = newAuthKey;
+                    ConfigService::getInstance()->saveConfig(config);
+                    
+                    if (self->mSocketClient && xSemaphoreTake(self->mWsMutex, pdMS_TO_TICKS(1000)) == pdTRUE) {
+                        self->mSocketClient->setAuthorization(newAuthKey.c_str());
+                        self->mSocketClient->disconnect(); // Reconnect with the new key (or as a new device if cleared)
+                        xSemaphoreGive(self->mWsMutex);
+                    } else {
+                        ESP_LOGW(kTag, "Could not lock WebSocket to apply new authKey; it will apply after reboot.");
+                    }
+
+
+                    ESP_LOGI(kTag, "Updated authKey from server command.");
+
+                    break; // No need to call the request callback for this command
+                }
+
+
                 self->mRequestCallback(commandId, messageInfo->payloadLength - 1, messageInfo->payload + 1, messageInfo->requestId);
                 break;
             }
@@ -161,7 +196,7 @@ void MessageClient::processMessageTask(void* pvParameters) {
                 }
 
                 if (responseCallback) {
-                    responseCallback(true, messageInfo->payload + 2);
+                    responseCallback(true, messageInfo->payload);
                 }
                 break;
             }
@@ -191,10 +226,22 @@ void MessageClient::handleWebSocketEvent(WStype_t type, uint8_t* payload, size_t
             break;
             
         case WStype_CONNECTED:
-            mWasConnected = true;
-            if (mStateChangedCallback) mStateChangedCallback(ClientState::kConnected);
+            mWasConnected = false;
             break;
-            
+        case WStype_TEXT:
+            ESP_LOGI(kTag, "Received text message: %.*s", (int)len, payload);
+        
+            if (len == 5 && memcmp(payload, "ready", 5) == 0) {
+                if (!mWasConnected) {
+                    mWasConnected = true;
+                    if (mStateChangedCallback) mStateChangedCallback(ClientState::kConnected);
+                }
+            } else if (len == 7 && memcmp(payload, "pending", 7) == 0) {
+                mWasConnected = false;
+                ESP_LOGI(kTag, "Waiting for server approval; not sending data yet.");
+            }
+            break;
+
         case WStype_BIN: {
             if (len < kFixedHeaderLength) {
                 ESP_LOGW(kTag, "Received message is too short to contain a valid header.");
@@ -207,8 +254,8 @@ void MessageClient::handleWebSocketEvent(WStype_t type, uint8_t* payload, size_t
             messageInfo->requestId = requestId;
             messageInfo->messageType = static_cast<uint8_t>(payload[0]);
             messageInfo->payloadLength = len - kFixedHeaderLength;
-            messageInfo->payload = new uint8_t[len];
-            memcpy(messageInfo->payload, payload, len);
+            messageInfo->payload = new uint8_t[messageInfo->payloadLength];
+            memcpy(messageInfo->payload, payload + kFixedHeaderLength, messageInfo->payloadLength);
 
             if (xQueueSend(mIncomingMessageQueue, &messageInfo, pdMS_TO_TICKS(100)) != pdTRUE) {
                 ESP_LOGW(kTag, "Failed to enqueue incoming message.");
@@ -217,7 +264,6 @@ void MessageClient::handleWebSocketEvent(WStype_t type, uint8_t* payload, size_t
             }
             break;
         }
-        case WStype_TEXT:
         case WStype_PING:
         case WStype_PONG:
             break;

@@ -5,7 +5,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     DATABASE_URL: str
     AUTHORIZATION_TOKEN: str
-    FACE_IMAGE_DATA_SIZE: str = "320x240"
+    FACE_IMAGE_DATA_SIZE: str = "640x480"
     FINGERPRINT_IMAGE_DATA_SIZE: str = "128x128"
     USE_CUDA: bool = False
     FACE_CAPTURE_IMAGE_PATH: str = "face_captures/"
